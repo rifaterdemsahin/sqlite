@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQLite 3.54.1 Architecture & Interactive Sandbox</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --surface: #131b2e;
+      --surface-alt: #1a2540;
+      --border: #2a395c;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.16);
+      --green: #22c55e;
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --amber: #f59e0b;
+      --amber-bg: rgba(245, 158, 11, 0.12);
+      --red: #ef4444;
+      --purple: #a855f7;
+      --mono: "JetBrains Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 15% 0%, #16223d 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding-bottom: 4rem;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Top Nav */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(12px);
+      background: rgba(11, 15, 25, 0.85);
+      border-bottom: 1px solid var(--border);
+      padding: 0.85rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.9rem;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* Hero Section */
+    .hero {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 1.75rem;
+      align-items: stretch;
+      margin-bottom: 2.5rem;
+    }
+
+    @media (max-width: 960px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .hero-card {
+      background: linear-gradient(145deg, var(--surface) 0%, #0f1627 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+    }
+
+    .hero h1 {
+      font-size: 2.2rem;
+      line-height: 1.2;
+      margin-bottom: 0.85rem;
+      letter-spacing: -0.025em;
+    }
+
+    .hero p.lead {
+      color: var(--muted);
+      font-size: 1.05rem;
+      margin-bottom: 1.4rem;
+    }
+
+    .telemetry-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.85rem;
+      margin-top: 1.2rem;
+    }
+
+    .stat-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-top: 0.2rem;
+    }
+
+    /* Section Headings */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 2.5rem 0 1.2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.65rem;
+    }
+
+    .section-header h2 {
+      font-size: 1.45rem;
+      letter-spacing: -0.01em;
+    }
+
+    /* Three Pillars Grid */
+    .pillars-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    @media (max-width: 1024px) {
+      .pillars-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .pillar-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .pillar-card.what-is {
+      border-top: 4px solid var(--accent);
+    }
+    .pillar-card.good-at {
+      border-top: 4px solid var(--green);
+    }
+    .pillar-card.not-for {
+      border-top: 4px solid var(--amber);
+    }
+
+    .pillar-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .feature-item {
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 0.8rem 0.95rem;
+      font-size: 0.94rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+
+    .feature-icon {
+      font-size: 1.25rem;
+      line-height: 1.2;
+      flex-shrink: 0;
+    }
+
+    /* Visual Architecture Diagrams */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    @media (max-width: 980px) {
+      .arch-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .arch-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.4rem;
+    }
+
+    .arch-card h3 {
+      font-size: 1.08rem;
+      margin-bottom: 0.35rem;
+      color: var(--text);
+    }
+
+    .arch-card p {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .svg-frame {
+      width: 100%;
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+
+    /* Interactive Sandbox Console */
+    .sandbox-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 980px) {
+      .sandbox-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.4rem;
+    }
+
+    .preset-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0.85rem 0;
+    }
+
+    button {
+      cursor: pointer;
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 0.84rem;
+      padding: 0.5rem 0.9rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--text);
+      transition: all 0.15s ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.12);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #090d16;
+      border-color: var(--accent);
+    }
+
+    button.primary:hover {
+      background: #7dd3fc;
+    }
+
+    button.warning {
+      border-color: var(--amber);
+      color: var(--amber);
+      background: var(--amber-bg);
+    }
+
+    button.success {
+      border-color: var(--green);
+      color: var(--green);
+      background: var(--green-bg);
+    }
+
+    textarea.sql-editor {
+      width: 100%;
+      min-height: 135px;
+      background: #080c14;
+      color: #7dd3fc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem;
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      resize: vertical;
+      margin-bottom: 0.75rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.83rem;
+      font-family: var(--mono);
+    }
+
+    th, td {
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    th {
+      background: #0f172a;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .log-box {
+      background: #080c14;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: #a7f3d0;
+      max-height: 240px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span>📦 SQLite Architecture & Interactive Sandbox</span>
+      <span class="badge" id="version-badge">SQLite 3.54.1 • Python sqlite3</span>
+    </div>
+    <nav class="nav-links">
+      <a href="index.html" class="active">Overview & Sandbox</a>
+      <a href="architecture.html">Deep-Dive Architecture Page</a>
+      <a href="#visual-architecture">Visual Diagrams</a>
+      <a href="#live-sandbox">Interactive SQL Lab</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- Hero Overview -->
+    <section class="hero">
+      <div class="hero-card">
+        <h1>Embedded SQL Engine Running Inside Your Process</h1>
+        <p class="lead">
+          Unlike client-server databases that require a background daemon, TCP ports, authentication handshakes, and network hops,
+          <strong>SQLite runs directly inside your application memory space</strong> and persists everything into a single ordinary file.
+        </p>
+        <div class="telemetry-bar">
+          <div class="stat-box">
+            <div class="stat-label">Mac SQLite Version</div>
+            <div class="stat-value" id="stat-version">3.54.1</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Server / Port / Network</div>
+            <div class="stat-value">NONE (In-Process)</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Database File Size</div>
+            <div class="stat-value" id="stat-db-size">24.0 KB</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">ACID Integrity Check</div>
+            <div class="stat-value" id="stat-acid" style="color: var(--green);">ok (WAL)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-card" style="display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <h3 style="margin-bottom:0.5rem;">Quick Proof Actions</h3>
+          <p style="color:var(--muted); font-size:0.9rem; margin-bottom:1rem;">
+            Test the core guarantees directly against the live <code>sandbox_data/ai_workflow_sandbox.db</code> file on disk:
+          </p>
+          <div style="display:flex; flex-direction:column; gap:0.65rem;">
+            <button class="success" onclick="triggerCloneProof()">📄 Copy File = Copy Database (Verify Clone)</button>
+            <button class="warning" onclick="triggerCrashProof()">🧾 Simulate Mid-Write Crash & ACID Rollback</button>
+            <button onclick="runPreset('upsert')">⚡ Execute ON CONFLICT Upsert Benchmark</button>
+          </div>
+        </div>
+        <div style="margin-top:1rem; font-size:0.82rem; color:var(--muted); font-family:var(--mono);" id="quick-proof-status">
+          Ready • Standard library module: import sqlite3
+        </div>
+      </div>
+    </section>
+
+    <!-- Core Pillars from Prompt -->
+    <div class="section-header">
+      <h2>Core Specification: What SQLite Is, What It Excels At & What It Is Not For</h2>
+      <a href="architecture.html">View Full Architecture Page →</a>
+    </div>
+
+    <section class="pillars-grid">
+      <!-- Column 1: What SQLite is -->
+      <div class="pillar-card what-is">
+        <div class="pillar-title">📦 What SQLite Is</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">📦</span>
+            <div>
+              <strong>In-Process Library Engine:</strong> A complete SQL database engine that runs inside your program as a library. There is <em>no server process, no port, no password, and no network</em>.
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">📄</span>
+            <div>
+              <strong>Single Ordinary File:</strong> The whole database is one ordinary file (<code>ai_workflow_sandbox.db</code>). Copying the file copies the database.
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">🐍</span>
+            <div>
+              <strong>Built into Python:</strong> Python ships it as the standard-library module <code>sqlite3</code>. Version on this Mac: <strong>3.54.1</strong>.
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">🧾</span>
+            <div>
+              <strong>ACID Transactions:</strong> Transactions are Atomic, Consistent, Isolated, and Durable, so a crash mid-write leaves the file consistent.
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">🌍</span>
+            <div>
+              <strong>Public Domain & Ubiquitous:</strong> It is public domain and one of the most widely deployed databases in the world (phones, browsers, desktop & AI apps).
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Column 2: What it is good at -->
+      <div class="pillar-card good-at">
+        <div class="pillar-title">✅ What It Is Good At</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">✅</span>
+            <div>
+              <strong>Local App State, Caches & Indexes:</strong> Ideal for local application state, prompt/embedding caches, secondary indexes, and small-to-medium datasets (up to many GB).
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">✅</span>
+            <div>
+              <strong>Fast Reads with Real SQL:</strong> Zero IPC overhead enables microsecond reads with full relational power: <code>GROUP BY</code>, B-tree indexes, and <code>ON CONFLICT</code> upserts.
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">✅</span>
+            <div>
+              <strong>Zero Setup & Zero Running Cost:</strong> No Docker containers to provision, no credentials to rotate, and $0 idle cloud database cost.
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Column 3: What it is not for -->
+      <div class="pillar-card not-for">
+        <div class="pillar-title">⚠️ What It Is Not For</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">⚠️</span>
+            <div>
+              <strong>Many Simultaneous Writers:</strong> Only one write happens at a time for the whole file. High-throughput concurrent writers contend on the file lock.
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">⚠️</span>
+            <div>
+              <strong>Access Over a Network Share:</strong> Putting the file on NFS/SMB or a cloud sync tool (Dropbox/iCloud) and opening it from several machines at once can corrupt it due to broken POSIX file locking.
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">⚠️</span>
+            <div>
+              <strong>Multi-User Role-Based Access Control:</strong> There are no built-in <code>GRANT</code>/<code>REVOKE</code> user roles; anyone who can read/write the OS file owns the data.
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Visual Architecture Diagrams -->
+    <div class="section-header" id="visual-architecture">
+      <h2>Visual Architecture Diagrams</h2>
+      <a href="architecture.html">Open Dedicated Visual Architecture Blueprint →</a>
+    </div>
+
+    <section class="arch-grid">
+      <!-- Diagram 1: Embedded Library vs Client-Server -->
+      <div class="arch-card">
+        <h3>1. In-Process Library vs. Client-Server Topology</h3>
+        <p>SQLite eliminates TCP sockets, network serialization, and external daemon processes by executing SQL directly in-process.</p>
+        <div class="svg-frame">
+          <svg viewBox="0 0 600 250" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+            <!-- Left: Traditional Client-Server -->
+            <rect x="12" y="15" width="270" height="220" rx="10" fill="#111827" stroke="#374151" />
+            <text x="26" y="38" fill="#f59e0b" font-family="sans-serif" font-size="12" font-weight="bold">CLIENT-SERVER DB (Postgres / MySQL)</text>
+            <rect x="28" y="52" width="105" height="52" rx="6" fill="#1e293b" stroke="#475569" />
+            <text x="42" y="75" fill="#e2e8f0" font-family="monospace" font-size="11">Python App</text>
+            <text x="42" y="92" fill="#94a3b8" font-family="monospace" font-size="9">DB Driver</text>
+
+            <line x1="133" y1="78" x2="175" y2="78" stroke="#ef4444" stroke-width="2" stroke-dasharray="4 3" />
+            <text x="136" y="68" fill="#fca5a5" font-family="monospace" font-size="8">TCP:5432</text>
+            <text x="136" y="92" fill="#fca5a5" font-family="monospace" font-size="8">Auth/TLS</text>
+
+            <rect x="175" y="48" width="94" height="65" rx="6" fill="#31102f" stroke="#ec4899" />
+            <text x="185" y="70" fill="#fbcfe8" font-family="monospace" font-size="10">DB Server</text>
+            <text x="185" y="85" fill="#f9a8d4" font-family="monospace" font-size="8">Daemon PID</text>
+            <text x="185" y="99" fill="#f9a8d4" font-family="monospace" font-size="8">RBAC / Roles</text>
+
+            <rect x="28" y="135" width="240" height="82" rx="6" fill="#1f2937" stroke="#374151" />
+            <text x="38" y="156" fill="#cbd5e1" font-family="sans-serif" font-size="10">• Requires running server daemon</text>
+            <text x="38" y="174" fill="#cbd5e1" font-family="sans-serif" font-size="10">• Network latency on every query</text>
+            <text x="38" y="192" fill="#cbd5e1" font-family="sans-serif" font-size="10">• Multi-file cluster data directory</text>
+            <text x="38" y="210" fill="#cbd5e1" font-family="sans-serif" font-size="10">• Supports many concurrent writers</text>
+
+            <!-- Right: SQLite Embedded -->
+            <rect x="305" y="15" width="283" height="220" rx="10" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5" />
+            <text x="320" y="38" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="bold">SQLITE 3.54.1 (Embedded Library)</text>
+
+            <rect x="320" y="50" width="160" height="72" rx="8" fill="#1e293b" stroke="#38bdf8" />
+            <text x="332" y="70" fill="#e2e8f0" font-family="monospace" font-size="11" font-weight="bold">Your Python Process</text>
+            <rect x="332" y="78" width="136" height="34" rx="5" fill="#0369a1" />
+            <text x="342" y="98" fill="#e0f2fe" font-family="monospace" font-size="10">import sqlite3 (C lib)</text>
+
+            <line x1="480" y1="86" x2="512" y2="86" stroke="#22c55e" stroke-width="2.5" />
+            <text x="482" y="76" fill="#86efac" font-family="monospace" font-size="8">OS read()</text>
+
+            <rect x="512" y="54" width="64" height="64" rx="6" fill="#064e3b" stroke="#22c55e" />
+            <text x="520" y="78" fill="#dcfce7" font-family="monospace" font-size="10">Single</text>
+            <text x="520" y="92" fill="#dcfce7" font-family="monospace" font-size="10">.db File</text>
+            <text x="520" y="106" fill="#86efac" font-family="monospace" font-size="8">4KB Pages</text>
+
+            <rect x="320" y="135" width="255" height="82" rx="6" fill="#132338" stroke="#1e3a5f" />
+            <text x="330" y="156" fill="#bae6fd" font-family="sans-serif" font-size="10">✓ No server process, port, or password</text>
+            <text x="330" y="174" fill="#bae6fd" font-family="sans-serif" font-size="10">✓ Function call speed (0 network hops)</text>
+            <text x="330" y="192" fill="#bae6fd" font-family="sans-serif" font-size="10">✓ Copy 1 file = full database backup</text>
+            <text x="330" y="210" fill="#bae6fd" font-family="sans-serif" font-size="10">✓ ACID transactions via WAL / Rollback</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Diagram 2: Internal Pipeline & Single-File Page Layout -->
+      <div class="arch-card">
+        <h3>2. SQLite Internal Engine & Single-File B-Tree Layout</h3>
+        <p>How SQL strings compile into Virtual Database Engine (VDBE) bytecode and atomically mutate 4KB disk pages.</p>
+        <div class="svg-frame">
+          <svg viewBox="0 0 600 250" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+            <!-- Pipeline flow -->
+            <rect x="14" y="20" width="105" height="55" rx="6" fill="#1e293b" stroke="#38bdf8" />
+            <text x="24" y="44" fill="#38bdf8" font-family="monospace" font-size="10" font-weight="bold">1. SQL Parser</text>
+            <text x="24" y="60" fill="#94a3b8" font-family="monospace" font-size="8">Tokenizer & AST</text>
+
+            <line x1="119" y1="47" x2="144" y2="47" stroke="#38bdf8" stroke-width="2" />
+
+            <rect x="144" y="20" width="125" height="55" rx="6" fill="#1e293b" stroke="#38bdf8" />
+            <text x="154" y="44" fill="#38bdf8" font-family="monospace" font-size="10" font-weight="bold">2. Query Planner</text>
+            <text x="154" y="60" fill="#94a3b8" font-family="monospace" font-size="8">Index & B-Tree Cost</text>
+
+            <line x1="269" y1="47" x2="294" y2="47" stroke="#38bdf8" stroke-width="2" />
+
+            <rect x="294" y="20" width="125" height="55" rx="6" fill="#1e293b" stroke="#a855f7" />
+            <text x="304" y="44" fill="#d8b4fe" font-family="monospace" font-size="10" font-weight="bold">3. VDBE VM</text>
+            <text x="304" y="60" fill="#94a3b8" font-family="monospace" font-size="8">Bytecode Executor</text>
+
+            <line x1="419" y1="47" x2="444" y2="47" stroke="#22c55e" stroke-width="2" />
+
+            <rect x="444" y="20" width="140" height="55" rx="6" fill="#064e3b" stroke="#22c55e" />
+            <text x="454" y="44" fill="#86efac" font-family="monospace" font-size="10" font-weight="bold">4. B-Tree & Pager</text>
+            <text x="454" y="60" fill="#a7f3d0" font-family="monospace" font-size="8">ACID Cache + OS VFS</text>
+
+            <!-- Single File Anatomy -->
+            <rect x="14" y="96" width="570" height="136" rx="8" fill="#0b1324" stroke="#334155" />
+            <text x="28" y="118" fill="#e2e8f0" font-family="sans-serif" font-size="11" font-weight="bold">SINGLE ORDINARY FILE ON DISK: ai_workflow_sandbox.db (Fixed 4096-Byte Pages)</text>
+
+            <rect x="28" y="132" width="120" height="80" rx="5" fill="#1e293b" stroke="#64748b" />
+            <text x="38" y="154" fill="#38bdf8" font-family="monospace" font-size="10">Page 1: Header</text>
+            <text x="38" y="170" fill="#94a3b8" font-family="monospace" font-size="8">"SQLite format 3"</text>
+            <text x="38" y="184" fill="#94a3b8" font-family="monospace" font-size="8">sqlite_schema</text>
+
+            <rect x="160" y="132" width="130" height="80" rx="5" fill="#1e293b" stroke="#22c55e" />
+            <text x="170" y="154" fill="#86efac" font-family="monospace" font-size="10">Page 2..N: Tables</text>
+            <text x="170" y="170" fill="#94a3b8" font-family="monospace" font-size="8">B+Tree Table Rows</text>
+            <text x="170" y="184" fill="#94a3b8" font-family="monospace" font-size="8">agent_runs / kv_cache</text>
+
+            <rect x="302" y="132" width="130" height="80" rx="5" fill="#1e293b" stroke="#a855f7" />
+            <text x="312" y="154" fill="#d8b4fe" font-family="monospace" font-size="10">Index Pages</text>
+            <text x="312" y="170" fill="#94a3b8" font-family="monospace" font-size="8">B-Tree Key Lookups</text>
+            <text x="312" y="184" fill="#94a3b8" font-family="monospace" font-size="8">O(log N) Fast Seek</text>
+
+            <rect x="444" y="132" width="126" height="80" rx="5" fill="#3b2110" stroke="#f59e0b" />
+            <text x="454" y="154" fill="#fcd34d" font-family="monospace" font-size="10">WAL / Journal</text>
+            <text x="454" y="170" fill="#fde68a" font-family="monospace" font-size="8">Atomic Commit Log</text>
+            <text x="454" y="184" fill="#fde68a" font-family="monospace" font-size="8">Crash Recovery</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Diagram 3: Concurrency (Many Readers, Single Writer) -->
+      <div class="arch-card">
+        <h3>3. Concurrency Model: Many Fast Readers vs. Single Writer Lock</h3>
+        <p>Why SQLite excels at fast local reads but is not designed for many simultaneous writers.</p>
+        <div class="svg-frame">
+          <svg viewBox="0 0 600 220" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+            <!-- Readers -->
+            <rect x="16" y="20" width="135" height="45" rx="6" fill="#064e3b" stroke="#22c55e" />
+            <text x="28" y="40" fill="#dcfce7" font-family="monospace" font-size="10">Reader Thread A</text>
+            <text x="28" y="54" fill="#86efac" font-family="monospace" font-size="8">SELECT ... GROUP BY</text>
+
+            <rect x="16" y="78" width="135" height="45" rx="6" fill="#064e3b" stroke="#22c55e" />
+            <text x="28" y="98" fill="#dcfce7" font-family="monospace" font-size="10">Reader Thread B</text>
+            <text x="28" y="112" fill="#86efac" font-family="monospace" font-size="8">Indexed Cache Lookup</text>
+
+            <!-- Writers -->
+            <rect x="16" y="145" width="135" height="55" rx="6" fill="#3b2110" stroke="#f59e0b" />
+            <text x="28" y="165" fill="#fef3c7" font-family="monospace" font-size="10">Writer A (Active)</text>
+            <text x="28" y="180" fill="#fcd34d" font-family="monospace" font-size="8">INSERT .. ON CONFLICT</text>
+
+            <line x1="151" y1="42" x2="270" y2="65" stroke="#22c55e" stroke-width="2" />
+            <line x1="151" y1="100" x2="270" y2="85" stroke="#22c55e" stroke-width="2" />
+            <line x1="151" y1="172" x2="270" y2="155" stroke="#f59e0b" stroke-width="2.5" />
+
+            <!-- DB & Lock -->
+            <rect x="270" y="35" width="145" height="75" rx="8" fill="#0f172a" stroke="#22c55e" />
+            <text x="282" y="60" fill="#86efac" font-family="monospace" font-size="10" font-weight="bold">PARALLEL READS</text>
+            <text x="282" y="78" fill="#cbd5e1" font-family="monospace" font-size="9">Zero Read Lock Contention</text>
+            <text x="282" y="94" fill="#94a3b8" font-family="monospace" font-size="8">Snapshot Isolation</text>
+
+            <rect x="270" y="125" width="145" height="75" rx="8" fill="#2a1215" stroke="#ef4444" />
+            <text x="282" y="148" fill="#fca5a5" font-family="monospace" font-size="10" font-weight="bold">EXCLUSIVE WRITE</text>
+            <text x="282" y="165" fill="#fecaca" font-family="monospace" font-size="9">1 Write at a Time</text>
+            <text x="282" y="182" fill="#f87171" font-family="monospace" font-size="8">Whole-File Write Lock</text>
+
+            <!-- Waiting Writers -->
+            <rect x="445" y="125" width="138" height="75" rx="6" fill="#1f2937" stroke="#ef4444" stroke-dasharray="4 3" />
+            <text x="455" y="148" fill="#fca5a5" font-family="monospace" font-size="10">Writers B, C, D...</text>
+            <text x="455" y="165" fill="#cbd5e1" font-family="monospace" font-size="8">⚠️ Queued / SQLITE_BUSY</text>
+            <text x="455" y="180" fill="#94a3b8" font-family="monospace" font-size="8">Serialized per file</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Diagram 4: Why Network Shares Corrupt SQLite -->
+      <div class="arch-card">
+        <h3>4. Anti-Pattern: Network File Systems (NFS / SMB / Cloud Sync)</h3>
+        <p>Why opening a single SQLite file over a network mount or sync folder from multiple machines risks corruption.</p>
+        <div class="svg-frame">
+          <svg viewBox="0 0 600 220" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+            <rect x="16" y="25" width="140" height="65" rx="6" fill="#1e293b" stroke="#64748b" />
+            <text x="28" y="50" fill="#e2e8f0" font-family="monospace" font-size="10">Machine 1 (Mac)</text>
+            <text x="28" y="68" fill="#94a3b8" font-family="monospace" font-size="8">Writes Page #4</text>
+
+            <rect x="16" y="125" width="140" height="65" rx="6" fill="#1e293b" stroke="#64748b" />
+            <text x="28" y="150" fill="#e2e8f0" font-family="monospace" font-size="10">Machine 2 (Linux)</text>
+            <text x="28" y="168" fill="#94a3b8" font-family="monospace" font-size="8">Writes Page #4</text>
+
+            <line x1="156" y1="58" x2="255" y2="95" stroke="#ef4444" stroke-width="2" stroke-dasharray="5 3" />
+            <line x1="156" y1="158" x2="255" y2="120" stroke="#ef4444" stroke-width="2" stroke-dasharray="5 3" />
+
+            <rect x="255" y="62" width="155" height="95" rx="8" fill="#311018" stroke="#ef4444" />
+            <text x="268" y="88" fill="#fca5a5" font-family="monospace" font-size="10" font-weight="bold">⚠️ Network Share / Sync</text>
+            <text x="268" y="106" fill="#fecaca" font-family="monospace" font-size="8">NFS / SMB / Dropbox</text>
+            <text x="268" y="124" fill="#fca5a5" font-family="monospace" font-size="8">POSIX fcntl() locks lag</text>
+            <text x="268" y="140" fill="#fca5a5" font-family="monospace" font-size="8">or silently desync!</text>
+
+            <line x1="410" y1="110" x2="445" y2="110" stroke="#ef4444" stroke-width="2.5" />
+
+            <rect x="445" y="68" width="138" height="84" rx="8" fill="#450a0a" stroke="#ef4444" />
+            <text x="457" y="95" fill="#fecaca" font-family="monospace" font-size="10" font-weight="bold">FILE CORRUPTION</text>
+            <text x="457" y="114" fill="#fca5a5" font-family="monospace" font-size="8">Overwritten B-Tree</text>
+            <text x="457" y="130" fill="#fca5a5" font-family="monospace" font-size="8">database disk image</text>
+            <text x="457" y="142" fill="#fca5a5" font-family="monospace" font-size="8">is malformed</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live Interactive SQLite Sandbox -->
+    <div class="section-header" id="live-sandbox">
+      <h2>Interactive SQLite 3.54.1 Sandbox (Connected to Live Local File)</h2>
+      <span class="badge">sandbox_data/ai_workflow_sandbox.db</span>
+    </div>
+
+    <section class="sandbox-grid">
+      <div class="panel">
+        <h3>Run Real SQL Against the Embedded Sandbox</h3>
+        <p style="font-size:0.88rem; color:var(--muted);">
+          Select a preset or write any SQL query (`GROUP BY`, `ON CONFLICT DO UPDATE`, `EXPLAIN QUERY PLAN`) and run it directly against Python's `sqlite3` engine:
+        </p>
+
+        <div class="preset-buttons">
+          <button onclick="runPreset('groupby')">📊 Fast GROUP BY Aggregation</button>
+          <button onclick="runPreset('upsert')">🔁 ON CONFLICT Upsert Cache Hit</button>
+          <button onclick="runPreset('explain')">🔍 EXPLAIN QUERY PLAN (Index Proof)</button>
+          <button onclick="runPreset('all_runs')">📋 View All Agent Runs</button>
+          <button onclick="resetSandbox()">♻️ Reset DB</button>
+        </div>
+
+        <textarea id="sql-input" class="sql-editor">SELECT
+    agent_name,
+    task_type,
+    COUNT(*) AS total_runs,
+    SUM(tokens_used) AS total_tokens,
+    ROUND(AVG(latency_ms), 2) AS avg_latency_ms
+FROM agent_runs
+GROUP BY agent_name, task_type
+ORDER BY total_tokens DESC;</textarea>
+
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <button class="primary" onclick="executeCustomSQL()">▶ Execute SQL in SQLite 3.54.1</button>
+          <span id="query-timing" style="font-family:var(--mono); font-size:0.82rem; color:var(--accent);"></span>
+        </div>
+
+        <div class="table-wrap" id="query-results-wrap">
+          <table id="query-results-table">
+            <thead><tr><th>Status</th></tr></thead>
+            <tbody><tr><td>Loading live results from SQLite...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" style="display:flex; flex-direction:column; gap:1rem;">
+        <div>
+          <h3>Live Engine Proof Telemetry & ACID Audit Log</h3>
+          <p style="font-size:0.86rem; color:var(--muted);">
+            Real-time inspection of the single database file, cloned backup file, `ON CONFLICT` cache table, and ACID transaction rollback trace.
+          </p>
+        </div>
+
+        <div class="log-box" id="audit-log">Initializing SQLite 3.54.1 telemetry...</div>
+
+        <div>
+          <h4 style="font-size:0.92rem; margin-bottom:0.4rem;">KV Cache Table (<code>ON CONFLICT DO UPDATE</code> Target)</h4>
+          <div class="table-wrap">
+            <table id="cache-table">
+              <thead>
+                <tr>
+                  <th>cache_key</th>
+                  <th>hit_count</th>
+                  <th>last_accessed</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div>
+        <strong>SQLite GitHub Project Sandbox</strong> • Built with Python standard library <code>sqlite3</code> (v3.54.1)
+      </div>
+      <div>
+        <a href="index.html">index.html (Main Sandbox)</a> •
+        <a href="architecture.html">architecture.html (Visual Architecture Page)</a>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    const PRESETS = {
+      groupby: `SELECT
+    agent_name,
+    task_type,
+    COUNT(*) AS total_runs,
+    SUM(tokens_used) AS total_tokens,
+    ROUND(AVG(latency_ms), 2) AS avg_latency_ms
+FROM agent_runs
+GROUP BY agent_name, task_type
+ORDER BY total_tokens DESC;`,
+      upsert: `INSERT INTO kv_cache (cache_key, payload, hit_count, last_accessed)
+VALUES ('schema:agent_runs', '{"columns":8,"indexed":true,"wal_enabled":true}', 1, datetime('now'))
+ON CONFLICT(cache_key) DO UPDATE SET
+    hit_count = kv_cache.hit_count + 1,
+    last_accessed = excluded.last_accessed;`,
+      explain: `EXPLAIN QUERY PLAN
+SELECT * FROM agent_runs WHERE agent_name = 'retriever-agent';`,
+      all_runs: `SELECT run_id, agent_name, model, task_type, tokens_used, latency_ms, status
+FROM agent_runs
+ORDER BY run_id;`
+    };
+
+    function renderTable(tableEl, columns, rows) {
+      if (!columns || columns.length === 0) {
+        tableEl.innerHTML = "<thead><tr><th>Result</th></tr></thead><tbody><tr><td>Query executed (no rows returned)</td></tr></tbody>";
+        return;
+      }
+      const thead = "<thead><tr>" + columns.map(c => `<th>${c}</th>`).join("") + "</tr></thead>";
+      const tbody = "<tbody>" + rows.map(r => {
+        return "<tr>" + columns.map(c => `<td>${r[c] !== null && r[c] !== undefined ? r[c] : "NULL"}</td>`).join("") + "</tr>";
+      }).join("") + "</tbody>";
+      tableEl.innerHTML = thead + tbody;
+    }
+
+    function updateDashboardFromSnapshot(snap) {
+      if (!snap) return;
+      document.getElementById("stat-version").textContent = snap.engine.sqlite_version;
+      document.getElementById("version-badge").textContent = `SQLite ${snap.engine.sqlite_version} • Python sqlite3`;
+      document.getElementById("stat-db-size").textContent = `${(snap.engine.db_size_bytes / 1024).toFixed(1)} KB (${snap.engine.page_count} pages)`;
+      document.getElementById("stat-acid").textContent = `${snap.acid_proof.integrity_check} (${snap.engine.journal_mode.toUpperCase()})`;
+
+      const logLines = [
+        `[ENGINE] SQLite v${snap.engine.sqlite_version} | Module: ${snap.engine.python_module}`,
+        `[ZERO-SERVER] Server Process: None | Port: None | Network Socket: None`,
+        `[SINGLE-FILE] ${snap.engine.db_file} (${snap.engine.db_size_bytes} bytes, ${snap.engine.page_size_bytes}B pages)`,
+        `[FILE-COPY PROOF] Copied -> ${snap.file_copy_proof.copied_file} (${snap.file_copy_proof.copied_bytes} bytes, verified ${snap.file_copy_proof.verified_rows_in_copy} rows)`,
+        `[ACID CRASH TEST] Rows before crash=${snap.acid_proof.rows_before_crash} | Rows after rollback=${snap.acid_proof.rows_after_rollback} | Integrity=${snap.acid_proof.integrity_check}`,
+        `  ↳ ${snap.acid_proof.transaction_trace.join("\n  ↳ ")}`
+      ];
+      document.getElementById("audit-log").textContent = logLines.join("\n");
+
+      const cacheTable = document.getElementById("cache-table");
+      renderTable(cacheTable, ["cache_key", "hit_count", "last_accessed"], snap.kv_cache);
+    }
+
+    async function loadInitialStatus() {
+      try {
+        const res = await fetch("/api/status");
+        const snap = await res.json();
+        updateDashboardFromSnapshot(snap);
+        const cols = snap.group_by_summary.length ? Object.keys(snap.group_by_summary[0]) : [];
+        renderTable(document.getElementById("query-results-table"), cols, snap.group_by_summary);
+        document.getElementById("query-timing").textContent = `Executed in ${snap.performance.group_by_latency_ms} ms`;
+      } catch (err) {
+        document.getElementById("audit-log").textContent = "Running in static preview mode. Start sandbox.py for live API queries.";
+      }
+    }
+
+    async function executeCustomSQL() {
+      const sql = document.getElementById("sql-input").value;
+      try {
+        const res = await fetch("/api/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sql })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          document.getElementById("query-timing").textContent = `Executed in ${data.elapsed_ms} ms (${data.row_count} rows)`;
+          renderTable(document.getElementById("query-results-table"), data.columns, data.rows);
+          if (data.snapshot) updateDashboardFromSnapshot(data.snapshot);
+        } else {
+          document.getElementById("query-timing").textContent = `Error (${data.elapsed_ms || 0} ms)`;
+          renderTable(document.getElementById("query-results-table"), ["SQL Error"], [{ "SQL Error": data.error }]);
+        }
+      } catch (err) {
+        alert("Could not reach sandbox.py server: " + err.message);
+      }
+    }
+
+    function runPreset(name) {
+      document.getElementById("sql-input").value = PRESETS[name];
+      executeCustomSQL();
+    }
+
+    async function triggerCloneProof() {
+      const res = await fetch("/api/clone-file", { method: "POST" });
+      const data = await res.json();
+      if (data.snapshot) updateDashboardFromSnapshot(data.snapshot);
+      document.getElementById("quick-proof-status").textContent =
+        `✅ Copied ${data.file_copy_proof.source_file} -> ${data.file_copy_proof.copied_file} (${data.file_copy_proof.verified_rows_in_copy} rows verified)`;
+    }
+
+    async function triggerCrashProof() {
+      const res = await fetch("/api/simulate-crash", { method: "POST" });
+      const data = await res.json();
+      if (data.snapshot) updateDashboardFromSnapshot(data.snapshot);
+      document.getElementById("quick-proof-status").textContent =
+        `🧾 Simulated mid-write crash: rolled back cleanly! Integrity=${data.acid_proof.integrity_check} (Rows=${data.acid_proof.rows_after_rollback})`;
+    }
+
+    async function resetSandbox() {
+      const res = await fetch("/api/reset");
+      const snap = await res.json();
+      updateDashboardFromSnapshot(snap);
+      runPreset("groupby");
+    }
+
+    window.addEventListener("DOMContentLoaded", loadInitialStatus);
+  </script>
+</body>
+</html>

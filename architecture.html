@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQLite Visual Architecture Blueprint — SQLite 3.54.1</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --surface: #111827;
+      --surface-alt: #1e293b;
+      --border: #2e3f5c;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.65;
+      padding-bottom: 4rem;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(7, 11, 20, 0.9);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.9rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .hero-banner {
+      background: linear-gradient(135deg, #111b33 0%, #0b1120 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.2rem;
+      margin-bottom: 2.2rem;
+    }
+
+    .hero-banner h1 {
+      font-size: 2rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .hero-banner p {
+      color: var(--muted);
+      max-width: 860px;
+    }
+
+    .blueprint-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .blueprint-section h2 {
+      font-size: 1.35rem;
+      margin-bottom: 0.45rem;
+      color: var(--accent);
+    }
+
+    .blueprint-section p.desc {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .svg-box {
+      background: #060911;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+    }
+
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    .matrix-table th, .matrix-table td {
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .matrix-table th {
+      background: var(--surface-alt);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+    }
+
+    .code-snippet {
+      background: #050811;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      font-family: var(--mono);
+      font-size: 0.84rem;
+      color: #a5f3fc;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div style="font-weight:700; font-size:1.08rem;">
+      📐 SQLite 3.54.1 Architectural Blueprint & Decision Matrix
+    </div>
+    <div style="display:flex; gap:1.25rem; font-size:0.9rem;">
+      <a href="index.html">← Back to Interactive Sandbox (index.html)</a>
+      <a href="architecture.html" style="font-weight:700;">Architecture Blueprint (Current Page)</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero-banner">
+      <h1>Visual Architecture Deep-Dive: Why SQLite Works the Way It Does</h1>
+      <p>
+        A complete visual walkthrough of SQLite 3.54.1 on macOS (`import sqlite3`): how an in-process C library replaces network database servers, how ACID transactions survive mid-write crashes, and where the architectural boundaries lie.
+      </p>
+    </section>
+
+    <!-- Blueprint 1: ACID Transaction & Crash Recovery Lifecycle -->
+    <section class="blueprint-section">
+      <h2>1. 🧾 ACID Transactions: Mid-Write Crash & Automatic Recovery</h2>
+      <p class="desc">
+        Transactions in SQLite are strictly ACID. Whether using a Rollback Journal or Write-Ahead Log (WAL), uncommitted changes never corrupt the primary B-tree pages if a process crashes or power fails mid-write.
+      </p>
+      <div class="svg-box">
+        <svg viewBox="0 0 880 230" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+          <rect x="15" y="30" width="185" height="170" rx="8" fill="#111827" stroke="#38bdf8" />
+          <text x="28" y="56" fill="#38bdf8" font-family="monospace" font-size="12" font-weight="bold">STEP 1: BEGIN WRITE</text>
+          <text x="28" y="80" fill="#cbd5e1" font-family="sans-serif" font-size="11">App runs INSERT/UPDATE</text>
+          <text x="28" y="102" fill="#94a3b8" font-family="monospace" font-size="10">Acquire EXCLUSIVE</text>
+          <text x="28" y="118" fill="#94a3b8" font-family="monospace" font-size="10">or WAL Writer Lock</text>
+          <rect x="28" y="138" width="158" height="44" rx="5" fill="#1e293b" />
+          <text x="38" y="164" fill="#7dd3fc" font-family="monospace" font-size="10">Pages staged in WAL</text>
+
+          <line x1="200" y1="115" x2="235" y2="115" stroke="#38bdf8" stroke-width="2.5" />
+
+          <rect x="235" y="30" width="195" height="170" rx="8" fill="#2a1215" stroke="#ef4444" />
+          <text x="248" y="56" fill="#fca5a5" font-family="monospace" font-size="12" font-weight="bold">STEP 2: CRASH MID-WRITE!</text>
+          <text x="248" y="80" fill="#fecaca" font-family="sans-serif" font-size="11">Process killed / exception</text>
+          <text x="248" y="102" fill="#fca5a5" font-family="monospace" font-size="10">Before COMMIT record</text>
+          <text x="248" y="118" fill="#fca5a5" font-family="monospace" font-size="10">is fsynced to disk</text>
+          <rect x="248" y="138" width="168" height="44" rx="5" fill="#450a0a" />
+          <text x="258" y="164" fill="#fecaca" font-family="monospace" font-size="10">Uncommitted frame</text>
+
+          <line x1="430" y1="115" x2="465" y2="115" stroke="#f59e0b" stroke-width="2.5" />
+
+          <rect x="465" y="30" width="195" height="170" rx="8" fill="#1e1b4b" stroke="#a855f7" />
+          <text x="478" y="56" fill="#d8b4fe" font-family="monospace" font-size="12" font-weight="bold">STEP 3: ROLLBACK / REOPEN</text>
+          <text x="478" y="80" fill="#e9d5ff" font-family="sans-serif" font-size="11">Next connection or rollback</text>
+          <text x="478" y="102" fill="#c084fc" font-family="monospace" font-size="10">Pager discards partial</text>
+          <text x="478" y="118" fill="#c084fc" font-family="monospace" font-size="10">uncommitted frames</text>
+          <rect x="478" y="138" width="168" height="44" rx="5" fill="#311042" />
+          <text x="488" y="164" fill="#f3e8ff" font-family="monospace" font-size="10">Original B-Tree intact</text>
+
+          <line x1="660" y1="115" x2="695" y2="115" stroke="#22c55e" stroke-width="2.5" />
+
+          <rect x="695" y="30" width="170" height="170" rx="8" fill="#064e3b" stroke="#22c55e" />
+          <text x="708" y="56" fill="#86efac" font-family="monospace" font-size="12" font-weight="bold">STEP 4: CONSISTENT</text>
+          <text x="708" y="80" fill="#dcfce7" font-family="sans-serif" font-size="11">Zero half-written rows</text>
+          <text x="708" y="104" fill="#a7f3d0" font-family="monospace" font-size="10">PRAGMA integrity_check</text>
+          <rect x="708" y="138" width="144" height="44" rx="5" fill="#047857" />
+          <text x="726" y="165" fill="#ffffff" font-family="monospace" font-size="12" font-weight="bold">STATUS: OK</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Blueprint 2: Architectural Decision Matrix -->
+    <section class="blueprint-section">
+      <h2>2. Architectural Fit & Trade-Off Matrix</h2>
+      <p class="desc">
+        Every architectural property from the specification mapped to its underlying system mechanism and practical engineering outcome.
+      </p>
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Specification Point</th>
+            <th>Underlying Architecture Mechanism</th>
+            <th>Live Sandbox Verification</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>📦 What SQLite Is</strong></td>
+            <td>In-process library; no server, port, password, or network</td>
+            <td>Compiled C library linked directly into Python's <code>_sqlite3</code> extension module</td>
+            <td>Verified: <code>server_process = None</code>, <code>port = None</code></td>
+          </tr>
+          <tr>
+            <td><strong>📄 Single File</strong></td>
+            <td>Whole DB is one ordinary file; copying it copies the database</td>
+            <td>All tables, B-tree indexes, and schema live in fixed-size 4096B pages in one file</td>
+            <td>Verified via <code>shutil.copy2()</code> to <code>ai_workflow_sandbox_copy.db</code></td>
+          </tr>
+          <tr>
+            <td><strong>🐍 Python Standard Lib</strong></td>
+            <td>Ships with Python as <code>sqlite3</code> (3.54.1 on this Mac)</td>
+            <td>Zero third-party <code>pip install</code> required; native C-API binding</td>
+            <td>Verified: <code>sqlite3.sqlite_version == "3.54.1"</code></td>
+          </tr>
+          <tr>
+            <td><strong>🧾 ACID Transactions</strong></td>
+            <td>Crash mid-write leaves the file consistent</td>
+            <td>Write-Ahead Logging (WAL) & atomic page rollback on uncommitted exceptions</td>
+            <td>Verified: Mid-transaction crash simulation rolls back cleanly</td>
+          </tr>
+          <tr>
+            <td><strong>✅ Good At</strong></td>
+            <td>Local app state, caches, indexes, <code>GROUP BY</code>, <code>ON CONFLICT</code> upserts</td>
+            <td>In-memory page cache + B-tree indexes execute in ~0.05ms with zero network serialization</td>
+            <td>Verified: Sub-millisecond <code>GROUP BY</code> and <code>ON CONFLICT</code> upserts</td>
+          </tr>
+          <tr>
+            <td><strong>⚠️ Not For</strong></td>
+            <td>Many simultaneous writers, network shares, multi-user RBAC</td>
+            <td>File-level write lock (1 writer at a time), reliance on local OS POSIX locks, file-level permissions</td>
+            <td>Documented & modeled in concurrency / NFS architecture diagrams</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Blueprint 3: Minimal Python Reference Pattern -->
+    <section class="blueprint-section">
+      <h2>3. Reference Python 3 (`sqlite3` v3.54.1) Implementation Pattern</h2>
+      <p class="desc">
+        Production-ready embedded pattern with WAL mode, indexed tables, <code>ON CONFLICT</code> upsert, and automatic ACID context management:
+      </p>
+      <pre class="code-snippet">import sqlite3
+
+# 1. Open single ordinary file (no server, port, password, or network)
+with sqlite3.connect("ai_workflow_sandbox.db") as conn:
+    conn.execute("PRAGMA journal_mode=WAL;")  # Fast concurrent reads + ACID safety
+
+    # 2. Atomic ACID transaction block (auto-commits or rolls back on exception)
+    conn.execute("""
+        INSERT INTO kv_cache (cache_key, payload, hit_count, last_accessed)
+        VALUES (?, ?, 1, datetime('now'))
+        ON CONFLICT(cache_key) DO UPDATE SET
+            hit_count = kv_cache.hit_count + 1,
+            last_accessed = excluded.last_accessed
+    """, ("schema:agent_runs", '{"indexed":true}'))
+
+    # 3. Fast indexed read with GROUP BY
+    rows = conn.execute("""
+        SELECT agent_name, COUNT(*), SUM(tokens_used)
+        FROM agent_runs
+        GROUP BY agent_name
+    """).fetchall()</pre>
+    </section>
+  </main>
+</body>
+</html>

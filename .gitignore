@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.DS_Store
+sandbox_data/*.db-wal
+sandbox_data/*.db-shm
+sandbox_data/*.db-journal

@@ -1,0 +1,156 @@
+{
+  "timestamp": "2026-10-30T10:57:43.800502+00:00",
+  "engine": {
+    "sqlite_version": "3.54.1",
+    "python_module": "sqlite3 (standard library)",
+    "server_process": null,
+    "port": null,
+    "network_socket": null,
+    "journal_mode": "wal",
+    "page_size_bytes": 4096,
+    "page_count": 7,
+    "db_file": "sandbox_data/ai_workflow_sandbox.db",
+    "db_size_bytes": 28672
+  },
+  "file_copy_proof": {
+    "source_file": "sandbox_data/ai_workflow_sandbox.db",
+    "copied_file": "sandbox_data/ai_workflow_sandbox_copy.db",
+    "source_bytes": 28672,
+    "copied_bytes": 28672,
+    "verified_rows_in_copy": 6
+  },
+  "acid_proof": {
+    "rows_before_crash": 6,
+    "rows_after_rollback": 6,
+    "integrity_check": "ok",
+    "transaction_trace": [
+      "BEGIN TRANSACTION",
+      "INSERT 1 row (run-crash-999) into uncommitted page buffer",
+      "CAUGHT: Simulated power loss / process crash mid-transaction before COMMIT -> AUTOMATIC ROLLBACK EXECUTED"
+    ]
+  },
+  "performance": {
+    "upsert_latency_ms": 0.238,
+    "group_by_latency_ms": 0.134,
+    "explain_query_plan": [
+      {
+        "id": 3,
+        "parent": 0,
+        "notused": 61,
+        "detail": "SEARCH agent_runs USING INDEX idx_agent_runs_agent_name (agent_name=?)"
+      }
+    ]
+  },
+  "group_by_summary": [
+    {
+      "agent_name": "planner-agent",
+      "task_type": "architecture-synthesis",
+      "total_runs": 2,
+      "total_tokens": 8160,
+      "avg_latency_ms": 299.7
+    },
+    {
+      "agent_name": "coder-agent",
+      "task_type": "sql-sandbox-gen",
+      "total_runs": 1,
+      "total_tokens": 6890,
+      "avg_latency_ms": 512.8
+    },
+    {
+      "agent_name": "retriever-agent",
+      "task_type": "vector-lookup",
+      "total_runs": 2,
+      "total_tokens": 2820,
+      "avg_latency_ms": 40.9
+    },
+    {
+      "agent_name": "verifier-agent",
+      "task_type": "acid-crash-test",
+      "total_runs": 1,
+      "total_tokens": 1920,
+      "avg_latency_ms": 68.5
+    }
+  ],
+  "agent_runs": [
+    {
+      "run_id": "run-101",
+      "agent_name": "planner-agent",
+      "model": "gemini-2.5-pro",
+      "task_type": "architecture-synthesis",
+      "tokens_used": 4250,
+      "latency_ms": 310.4,
+      "status": "SUCCESS",
+      "updated_at": "2026-10-30T10:57:25.128900+00:00"
+    },
+    {
+      "run_id": "run-102",
+      "agent_name": "retriever-agent",
+      "model": "gemini-2.5-flash",
+      "task_type": "vector-lookup",
+      "tokens_used": 1280,
+      "latency_ms": 42.1,
+      "status": "SUCCESS",
+      "updated_at": "2026-10-30T10:57:25.128900+00:00"
+    },
+    {
+      "run_id": "run-103",
+      "agent_name": "coder-agent",
+      "model": "gemini-2.5-pro",
+      "task_type": "sql-sandbox-gen",
+      "tokens_used": 6890,
+      "latency_ms": 512.8,
+      "status": "SUCCESS",
+      "updated_at": "2026-10-30T10:57:25.128900+00:00"
+    },
+    {
+      "run_id": "run-104",
+      "agent_name": "verifier-agent",
+      "model": "gemini-2.5-flash",
+      "task_type": "acid-crash-test",
+      "tokens_used": 1920,
+      "latency_ms": 68.5,
+      "status": "SUCCESS",
+      "updated_at": "2026-10-30T10:57:25.128900+00:00"
+    },
+    {
+      "run_id": "run-105",
+      "agent_name": "retriever-agent",
+      "model": "gemini-2.5-flash",
+      "task_type": "vector-lookup",
+      "tokens_used": 1540,
+      "latency_ms": 39.7,
+      "status": "SUCCESS",
+      "updated_at": "2026-10-30T10:57:25.128900+00:00"
+    },
+    {
+      "run_id": "run-106",
+      "agent_name": "planner-agent",
+      "model": "gemini-2.5-pro",
+      "task_type": "architecture-synthesis",
+      "tokens_used": 3910,
+      "latency_ms": 289.0,
+      "status": "SUCCESS",
+      "updated_at": "2026-10-30T10:57:25.128900+00:00"
+    }
+  ],
+  "kv_cache": [
+    {
+      "cache_key": "schema:agent_runs",
+      "payload": "{\"columns\":8,\"indexed\":true,\"wal_enabled\":true}",
+      "hit_count": 33,
+      "last_accessed": "2026-10-30T10:57:43.800502+00:00"
+    },
+    {
+      "cache_key": "prompt:system:v1",
+      "payload": "{\"role\":\"architect\",\"mode\":\"embedded_sqlite\"}",
+      "hit_count": 14,
+      "last_accessed": "2026-10-30T10:57:25.128900+00:00"
+    },
+    {
+      "cache_key": "embedding:doc:sqlite_acid",
+      "payload": "[0.021, -0.044, 0.198, 0.872]",
+      "hit_count": 7,
+      "last_accessed": "2026-10-30T10:57:25.128900+00:00"
+    }
+  ]
+}
