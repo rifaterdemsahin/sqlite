@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How SQLite Persistence Works on Fly.io — NVMe Volumes, WAL & LiteFS</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --surface: #111827;
+      --surface-alt: #1e293b;
+      --border: #2e3f5c;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.14);
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --purple: #a855f7;
+      --mono: "JetBrains Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 18% 0%, #15233d 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.65;
+      padding-bottom: 4rem;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(7, 11, 20, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.9rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.08rem;
+    }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.15rem;
+      font-size: 0.88rem;
+      flex-wrap: wrap;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .hero-card {
+      background: linear-gradient(140deg, #131d35 0%, #0b1120 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.1rem;
+      margin-bottom: 2rem;
+    }
+
+    .hero-card h1 {
+      font-size: 2rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .hero-card p {
+      color: var(--muted);
+      max-width: 880px;
+    }
+
+    .status-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 1rem;
+      margin-top: 1.35rem;
+    }
+
+    .status-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+    }
+
+    .status-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    .status-val {
+      font-family: var(--mono);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--green);
+      margin-top: 0.25rem;
+    }
+
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .section-card h2 {
+      font-size: 1.35rem;
+      color: var(--accent);
+      margin-bottom: 0.45rem;
+    }
+
+    .section-card p.sub {
+      color: var(--muted);
+      font-size: 0.94rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .svg-box {
+      background: #050811;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin-bottom: 1.2rem;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+    }
+
+    @media (max-width: 920px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .code-block {
+      background: #04070e;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      font-family: var(--mono);
+      font-size: 0.83rem;
+      color: #a5f3fc;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+
+    th {
+      background: var(--surface-alt);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span>💾 How SQLite Persistence Works on Fly.io</span>
+      <span class="badge">NVMe Block Volume • /data Mount</span>
+    </div>
+    <nav class="nav-links">
+      <a href="index.html">Overview & Sandbox</a>
+      <a href="sql-playground.html">SQL & CRUD Studio</a>
+      <a href="fly-persistence.html" class="active">Fly.io Persistence Guide</a>
+      <a href="architecture.html">Architecture Blueprint</a>
+      <a href="files-and-run.html">Files & Run Guide</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- Hero -->
+    <section class="hero-card">
+      <h1>Making SQLite Persistent Across Restarts & Deploys on Fly.io</h1>
+      <p>
+        By default, container root filesystems (<code>/app</code>) are <strong>ephemeral</strong>: redeploying or restarting a container wipes any changes made inside <code>/app</code>.
+        To make SQLite 100% durable on Fly.io while preserving its <strong>local POSIX file-locking requirement</strong>, we attach a dedicated <strong>Fly NVMe Volume (`sqlite_data`)</strong> mounted at <code>/data</code>.
+      </p>
+
+      <div class="status-strip">
+        <div class="status-box">
+          <div class="status-label">Active Storage Path</div>
+          <div class="status-val" id="live-path">/data/ai_workflow_sandbox.db</div>
+        </div>
+        <div class="status-box">
+          <div class="status-label">Fly Volume Mount</div>
+          <div class="status-val" id="live-mount">Mounted (/data)</div>
+        </div>
+        <div class="status-box">
+          <div class="status-label">Journal Mode</div>
+          <div class="status-val" id="live-wal">WAL (Write-Ahead Log)</div>
+        </div>
+        <div class="status-box">
+          <div class="status-label">Database File Size</div>
+          <div class="status-val" id="live-size">28.0 KB</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visual Diagram: Ephemeral RootFS vs Persistent NVMe Volume -->
+    <section class="section-card">
+      <h2>1. Visual Architecture: Ephemeral Container RootFS vs. Persistent Fly Volume (`/data`)</h2>
+      <p class="sub">
+        Why Fly Volumes work safely with SQLite whereas network file shares (NFS/SMB) corrupt it: Fly Volumes are slices of a <strong>local NVMe drive physically attached to the same host server</strong> where your Firecracker Micro-VM runs.
+      </p>
+
+      <div class="svg-box">
+        <svg viewBox="0 0 880 265" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+          <!-- Left: Ephemeral Container RootFS (Without Volume) -->
+          <rect x="16" y="18" width="405" height="230" rx="10" fill="#1c1118" stroke="#ef4444" stroke-width="1.5" />
+          <text x="32" y="44" fill="#fca5a5" font-family="monospace" font-size="12" font-weight="bold">❌ WITHOUT FLY VOLUME (Ephemeral RootFS)</text>
+
+          <rect x="32" y="60" width="370" height="90" rx="8" fill="#111827" stroke="#475569" />
+          <text x="48" y="84" fill="#e2e8f0" font-family="monospace" font-size="11">Fly Firecracker Micro-VM (/app)</text>
+          <text x="48" y="106" fill="#94a3b8" font-family="monospace" font-size="10">DB Path: /app/sandbox_data/ai_workflow_sandbox.db</text>
+          <text x="48" y="128" fill="#fca5a5" font-family="monospace" font-size="10">⚠️ Stored in ephemeral Docker overlay layer</text>
+
+          <rect x="32" y="165" width="370" height="65" rx="8" fill="#450a0a" stroke="#ef4444" />
+          <text x="48" y="190" fill="#fecaca" font-family="sans-serif" font-size="11" font-weight="bold">On `fly deploy` or Machine Replacement:</text>
+          <text x="48" y="212" fill="#fca5a5" font-family="sans-serif" font-size="10">Fresh image replaces `/app` → New CRUD rows are lost!</text>
+
+          <!-- Right: Persistent Fly Volume (/data) -->
+          <rect x="445" y="18" width="420" height="230" rx="10" fill="#0b192c" stroke="#22c55e" stroke-width="2" />
+          <text x="462" y="44" fill="#86efac" font-family="monospace" font-size="12" font-weight="bold">✅ WITH FLY NVMe VOLUME (`[mounts]` -> `/data`)</text>
+
+          <rect x="462" y="60" width="385" height="72" rx="8" fill="#1e293b" stroke="#38bdf8" />
+          <text x="478" y="84" fill="#f8fafc" font-family="monospace" font-size="11">Fly Firecracker Micro-VM (Stateless Code in /app)</text>
+          <text x="478" y="106" fill="#7dd3fc" font-family="monospace" font-size="10">ENV: SANDBOX_DATA_DIR="/data"</text>
+          <text x="478" y="122" fill="#94a3b8" font-family="monospace" font-size="9">Python `sqlite3` + `sqlite3` CLI binary</text>
+
+          <line x1="654" y1="132" x2="654" y2="156" stroke="#22c55e" stroke-width="3" />
+          <text x="664" y="148" fill="#86efac" font-family="monospace" font-size="9">Direct Local NVMe Block I/O (POSIX Locks OK)</text>
+
+          <rect x="462" y="156" width="385" height="76" rx="8" fill="#064e3b" stroke="#22c55e" />
+          <text x="478" y="180" fill="#dcfce7" font-family="monospace" font-size="11" font-weight="bold">Persistent Fly Volume: `sqlite_data` Mounted at `/data`</text>
+          <text x="478" y="200" fill="#a7f3d0" font-family="monospace" font-size="10">• /data/ai_workflow_sandbox.db (+ .db-wal, .db-shm)</text>
+          <text x="478" y="218" fill="#86efac" font-family="sans-serif" font-size="10">✓ Survives `fly deploy`, machine restarts &amp; auto-stop/start!</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Exact Configuration Used in This Project -->
+    <section class="section-card">
+      <h2>2. How It Is Configured in This Project (`fly.toml` + `Dockerfile` + `sandbox.py`)</h2>
+      <p class="sub">
+        Three small pieces connect your Python application to the persistent `/data` volume on Fly.io:
+      </p>
+
+      <div class="grid-2">
+        <div>
+          <h3 style="font-size:1rem; margin-bottom:0.5rem; color:var(--text);">A. `fly.toml` — Mount `sqlite_data` to `/data`</h3>
+          <pre class="code-block">app = "sqlite-ai-sandbox"
+primary_region = "lhr"
+
+[env]
+  PORT = "8080"
+  HOST = "0.0.0.0"
+  SANDBOX_DATA_DIR = "/data"
+
+[[mounts]]
+  source = "sqlite_data"
+  destination = "/data"
+  initial_size = "1gb"</pre>
+        </div>
+
+        <div>
+          <h3 style="font-size:1rem; margin-bottom:0.5rem; color:var(--text);">B. `sandbox.py` — Read `SANDBOX_DATA_DIR`</h3>
+          <pre class="code-block"># Reads /data on Fly.io or ./sandbox_data locally
+SANDBOX_DIR = os.environ.get(
+    "SANDBOX_DATA_DIR",
+    os.path.join(BASE_DIR, "sandbox_data")
+)
+DB_PATH = os.path.join(
+    SANDBOX_DIR,
+    "ai_workflow_sandbox.db"
+)
+
+# On first boot, if /data/ai_workflow_sandbox.db
+# does not exist yet, init_sandbox_db() creates it
+# in WAL mode and seeds initial records.</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step-by-Step Lifecycle & Backup Strategies -->
+    <section class="section-card">
+      <h2>3. How Fly.io SQLite Persistence Works Under the Hood (and Scaling Patterns)</h2>
+      <p class="sub">
+        Understanding the storage architecture, why single-writer rules apply, and how to back up or replicate your persistent SQLite file:
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Mechanism</th>
+            <th>How It Works on Fly.io</th>
+            <th>Command / Best Practice</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>1. Local NVMe Block Volume (`[[mounts]]`)</strong></td>
+            <td>
+              Fly Volumes allocate an ext4 filesystem on a physical NVMe drive on the host running your Firecracker VM. Because it is a real local block device (not NFS/SMB), SQLite's `fcntl()` POSIX locks and shared-memory `-shm` mmap files work at native speed without corruption.
+            </td>
+            <td><code>fly volumes list</code><br/><code>fly ssh console -C "ls -lh /data"</code></td>
+          </tr>
+          <tr>
+            <td><strong>2. Auto-Stop &amp; Auto-Start Safety</strong></td>
+            <td>
+              When `auto_stop_machines = "stop"` suspends your VM during idle periods, the `/data` volume remains attached to that machine. When an HTTP request wakes the machine up (~300ms), `/data/ai_workflow_sandbox.db` is immediately present with all your CRUD edits intact.
+            </td>
+            <td>Test in <a href="sql-playground.html">SQL &amp; CRUD Studio</a>: insert a row, redeploy, and query it again!</td>
+          </tr>
+          <tr>
+            <td><strong>3. Daily Automatic Snapshots</strong></td>
+            <td>
+              Fly.io automatically takes daily block-level snapshots of every volume and retains them for 5 days (configurable up to 60 days).
+            </td>
+            <td><code>fly volumes snapshots list &lt;vol-id&gt;</code></td>
+          </tr>
+          <tr>
+            <td><strong>4. Instant Single-File SFTP Backup</strong></td>
+            <td>
+              Because the whole SQLite database is one ordinary file, you can download a consistent hot backup from your Fly machine to your Mac at any time.
+            </td>
+            <td><code>fly sftp get /data/ai_workflow_sandbox.db ./fly_backup.db</code></td>
+          </tr>
+          <tr>
+            <td><strong>5. Continuous S3/Azure Blob Replication (Litestream / LiteFS)</strong></td>
+            <td>
+              For zero-RPO disaster recovery or multi-region read replicas, run <strong>Litestream</strong> (streams WAL frames continuously to Azure Blob Storage / S3) or <strong>LiteFS</strong> (FUSE filesystem that replicates SQLite transactions across Fly nodes).
+            </td>
+            <td><code>litestream replicate /data/ai_workflow_sandbox.db s3://my-bucket/db</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", async () => {
+      try {
+        const res = await fetch("/api/status");
+        const snap = await res.json();
+        document.getElementById("live-path").textContent = snap.engine.db_file;
+        document.getElementById("live-mount").textContent = snap.engine.persistent_volume_mounted
+          ? "✅ Mounted on Fly Volume (/data)"
+          : `💻 Local Disk (${snap.engine.storage_directory})`;
+        document.getElementById("live-wal").textContent = `${snap.engine.journal_mode.toUpperCase()} (Integrity: ${snap.acid_proof.integrity_check})`;
+        document.getElementById("live-size").textContent = `${(snap.engine.db_size_bytes / 1024).toFixed(1)} KB (${snap.engine.page_count} pages)`;
+      } catch (e) {}
+    });
+  </script>
+</body>
+</html>

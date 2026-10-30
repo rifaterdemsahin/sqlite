@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import sqlite3
+import subprocess
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -20,7 +21,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SANDBOX_DIR = os.path.join(BASE_DIR, "sandbox_data")
+SANDBOX_DIR = os.environ.get("SANDBOX_DATA_DIR", os.path.join(BASE_DIR, "sandbox_data"))
 DB_PATH = os.path.join(SANDBOX_DIR, "ai_workflow_sandbox.db")
 BACKUP_PATH = os.path.join(SANDBOX_DIR, "ai_workflow_sandbox_copy.db")
 REPORT_JSON_PATH = os.path.join(SANDBOX_DIR, "latest_benchmark.json")
@@ -200,10 +201,22 @@ def run_full_demonstration():
     db_size_bytes = os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0
     copy_size_bytes = os.path.getsize(BACKUP_PATH) if os.path.exists(BACKUP_PATH) else 0
 
+    cli_binary = shutil.which("sqlite3")
+    cli_version = None
+    if cli_binary:
+        try:
+            cli_version = subprocess.check_output([cli_binary, "--version"], text=True).strip()
+        except Exception:
+            cli_version = "installed"
+
+    is_volume_mounted = os.path.abspath(SANDBOX_DIR).startswith("/data")
+
     report = {
         "timestamp": now,
         "engine": {
             "sqlite_version": sqlite3.sqlite_version,
+            "sqlite3_cli_binary": cli_binary or "python-sqlite3-builtin",
+            "sqlite3_cli_version": cli_version or sqlite3.sqlite_version,
             "python_module": "sqlite3 (standard library)",
             "server_process": None,
             "port": None,
@@ -211,8 +224,10 @@ def run_full_demonstration():
             "journal_mode": journal_mode,
             "page_size_bytes": page_size,
             "page_count": page_count,
-            "db_file": os.path.relpath(DB_PATH, BASE_DIR),
+            "db_file": DB_PATH,
             "db_size_bytes": db_size_bytes,
+            "persistent_volume_mounted": is_volume_mounted,
+            "storage_directory": os.path.abspath(SANDBOX_DIR),
         },
         "file_copy_proof": {
             "source_file": os.path.relpath(DB_PATH, BASE_DIR),
@@ -244,20 +259,25 @@ def run_full_demonstration():
 
 
 def execute_custom_sql(sql_query: str):
-    """Executes user SQL in the sandbox DB safely and returns rows, timing, and state."""
+    """Executes one or multiple user SQL statements in the sandbox DB safely and returns rows, timing, and state."""
     conn = init_sandbox_db(DB_PATH, reset=False)
     cur = conn.cursor()
     t0 = time.perf_counter()
     try:
-        cur.execute(sql_query)
-        is_select = cur.description is not None
-        if is_select:
-            columns = [col[0] for col in cur.description]
-            rows = [dict(zip(columns, row)) for row in cur.fetchall()]
-        else:
-            conn.commit()
-            columns = ["affected_rows"]
-            rows = [{"affected_rows": cur.rowcount}]
+        statements = [s.strip() for s in sql_query.split(";") if s.strip()]
+        columns = []
+        rows = []
+        total_changes_before = conn.total_changes
+        for stmt in statements:
+            cur.execute(stmt)
+            if cur.description is not None:
+                columns = [col[0] for col in cur.description]
+                rows = [dict(zip(columns, row)) for row in cur.fetchall()]
+        conn.commit()
+        changes_delta = conn.total_changes - total_changes_before
+        if not columns:
+            columns = ["status", "affected_rows", "db_file"]
+            rows = [{"status": "COMMITTED", "affected_rows": changes_delta, "db_file": DB_PATH}]
         elapsed_ms = round((time.perf_counter() - t0) * 1000, 3)
         conn.close()
         return {
@@ -266,6 +286,7 @@ def execute_custom_sql(sql_query: str):
             "columns": columns,
             "rows": rows,
             "row_count": len(rows),
+            "affected_rows": changes_delta,
         }
     except Exception as exc:
         conn.rollback()
@@ -332,6 +353,26 @@ class SandboxRequestHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/clone-file":
             report = run_full_demonstration()
             self._send_json({"ok": True, "file_copy_proof": report["file_copy_proof"], "snapshot": report})
+            return
+
+        if parsed.path == "/api/sqlite-cli":
+            cmd = data.get("cmd", ".tables").strip()
+            cli_bin = shutil.which("sqlite3")
+            if not cli_bin:
+                self._send_json({"ok": False, "error": "sqlite3 CLI binary not found on PATH"}, status=400)
+                return
+            try:
+                out = subprocess.check_output(
+                    [cli_bin, "-header", "-column", DB_PATH, cmd],
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    timeout=5,
+                )
+                self._send_json({"ok": True, "command": f"sqlite3 -header -column {DB_PATH} \"{cmd}\"", "output": out})
+            except subprocess.CalledProcessError as exc:
+                self._send_json({"ok": False, "error": exc.output})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)})
             return
 
         self._send_json({"ok": False, "error": "Unknown endpoint"}, status=404)

@@ -1,7 +1,9 @@
 {
-  "timestamp": "2026-10-30T10:57:43.800502+00:00",
+  "timestamp": "2026-10-30T11:09:31.983652+00:00",
   "engine": {
     "sqlite_version": "3.54.1",
+    "sqlite3_cli_binary": "/usr/bin/sqlite3",
+    "sqlite3_cli_version": "3.54.0 2026-04-09 12:25:13 8fa8248e303219400c646a885e36dfc52eae33d83f4412e3f369b2be5373aapl (64-bit)",
     "python_module": "sqlite3 (standard library)",
     "server_process": null,
     "port": null,
@@ -9,8 +11,10 @@
     "journal_mode": "wal",
     "page_size_bytes": 4096,
     "page_count": 7,
-    "db_file": "sandbox_data/ai_workflow_sandbox.db",
-    "db_size_bytes": 28672
+    "db_file": "/Users/rifaterdemsahin/projects/sqlite/sandbox_data/ai_workflow_sandbox.db",
+    "db_size_bytes": 28672,
+    "persistent_volume_mounted": false,
+    "storage_directory": "/Users/rifaterdemsahin/projects/sqlite/sandbox_data"
   },
   "file_copy_proof": {
     "source_file": "sandbox_data/ai_workflow_sandbox.db",
@@ -30,8 +34,8 @@
     ]
   },
   "performance": {
-    "upsert_latency_ms": 0.238,
-    "group_by_latency_ms": 0.134,
+    "upsert_latency_ms": 0.29,
+    "group_by_latency_ms": 0.071,
     "explain_query_plan": [
       {
         "id": 3,
@@ -137,8 +141,8 @@
     {
       "cache_key": "schema:agent_runs",
       "payload": "{\"columns\":8,\"indexed\":true,\"wal_enabled\":true}",
-      "hit_count": 33,
-      "last_accessed": "2026-10-30T10:57:43.800502+00:00"
+      "hit_count": 34,
+      "last_accessed": "2026-10-30T11:09:31.983652+00:00"
     },
     {
       "cache_key": "prompt:system:v1",

@@ -7,6 +7,12 @@ primary_region = "lhr"
 [env]
   PORT = "8080"
   HOST = "0.0.0.0"
+  SANDBOX_DATA_DIR = "/data"
+
+[[mounts]]
+  source = "sqlite_data"
+  destination = "/data"
+  initial_size = "1gb"
 
 [http_service]
   internal_port = 8080

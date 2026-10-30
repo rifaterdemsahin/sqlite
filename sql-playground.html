@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Query & CRUD Studio — Live SQLite Manipulation</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --surface: #111827;
+      --surface-alt: #1e293b;
+      --border: #2e3f5c;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.14);
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --purple: #a855f7;
+      --mono: "JetBrains Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 20% 0%, #162440 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.6;
+      padding-bottom: 4rem;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(7, 11, 20, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.9rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.08rem;
+    }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.15rem;
+      font-size: 0.88rem;
+      flex-wrap: wrap;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .container {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .hero {
+      background: linear-gradient(145deg, #131d36 0%, #0b1120 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.8rem 2rem;
+      margin-bottom: 1.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+    }
+
+    .hero h1 {
+      font-size: 1.85rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .hero p {
+      color: var(--muted);
+      max-width: 780px;
+      font-size: 0.95rem;
+    }
+
+    .engine-pills {
+      display: flex;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+      margin-top: 0.85rem;
+    }
+
+    .pill {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      color: #bae6fd;
+    }
+
+    /* CRUD Sample Cards */
+    .crud-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+
+    @media (max-width: 1100px) {
+      .crud-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 640px) {
+      .crud-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .crud-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .crud-card.create { border-top: 4px solid var(--green); }
+    .crud-card.read   { border-top: 4px solid var(--accent); }
+    .crud-card.update { border-top: 4px solid var(--amber); }
+    .crud-card.delete { border-top: 4px solid var(--red); }
+
+    .crud-tag {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .crud-card h3 {
+      font-size: 1.02rem;
+      margin-top: 0.2rem;
+    }
+
+    .crud-card p {
+      font-size: 0.83rem;
+      color: var(--muted);
+    }
+
+    .crud-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    button {
+      cursor: pointer;
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 0.82rem;
+      padding: 0.5rem 0.85rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--text);
+      text-align: left;
+      transition: all 0.15s ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.14);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #070b14;
+      border-color: var(--accent);
+      text-align: center;
+      font-size: 0.9rem;
+      padding: 0.6rem 1.2rem;
+    }
+
+    button.primary:hover {
+      background: #7dd3fc;
+    }
+
+    /* Main Workspace Grid */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.75rem;
+    }
+
+    @media (max-width: 1024px) {
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.4rem;
+    }
+
+    .panel h2 {
+      font-size: 1.2rem;
+      margin-bottom: 0.35rem;
+      color: var(--accent);
+    }
+
+    textarea.sql-editor {
+      width: 100%;
+      min-height: 175px;
+      background: #050811;
+      color: #7dd3fc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.95rem;
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      resize: vertical;
+      margin: 0.75rem 0;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+
+    th, td {
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    th {
+      background: #0b1120;
+      color: var(--accent);
+      position: sticky;
+      top: 0;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+    }
+
+    pre.cli-output {
+      background: #04070e;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: #86efac;
+      min-height: 170px;
+      max-height: 280px;
+      overflow: auto;
+      white-space: pre;
+      margin-top: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span>🛠️ SQL Query & CRUD Manipulation Studio</span>
+      <span class="badge" id="cli-badge">SQLite Engine + sqlite3 CLI</span>
+    </div>
+    <nav class="nav-links">
+      <a href="index.html">Overview & Sandbox</a>
+      <a href="sql-playground.html" class="active">SQL & CRUD Studio</a>
+      <a href="fly-persistence.html">Fly.io Persistence Guide</a>
+      <a href="architecture.html">Architecture Blueprint</a>
+      <a href="files-and-run.html">Files & Run Guide</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- Hero -->
+    <section class="hero">
+      <div>
+        <h1>Manipulate Live SQLite on Fly.io & Local Machine</h1>
+        <p>
+          Execute real <strong>CREATE / INSERT, READ / SELECT, UPDATE / UPSERT, and DELETE</strong> statements directly against the mounted SQLite database file, or run native <code>sqlite3</code> CLI dot-commands (<code>.tables</code>, <code>.schema</code>, <code>.dbinfo</code>) installed inside the container.
+        </p>
+        <div class="engine-pills">
+          <div class="pill" id="pill-db-path">DB File: loading...</div>
+          <div class="pill" id="pill-cli-bin">sqlite3 CLI: loading...</div>
+          <div class="pill" id="pill-volume">Persistence: checking...</div>
+        </div>
+      </div>
+      <div>
+        <button onclick="resetDatabase()" style="border-color:var(--amber); color:var(--amber);">♻️ Reset Sandbox to Clean Seed Data</button>
+      </div>
+    </section>
+
+    <!-- 1-Click Sample CRUD Operations -->
+    <section class="crud-grid">
+      <!-- CREATE -->
+      <div class="crud-card create">
+        <div>
+          <div class="crud-tag" style="color:var(--green);">C — CREATE / INSERT</div>
+          <h3>Insert Rows & Custom Tables</h3>
+          <p>Add new AI agent runs or create your own custom table inside the single `.db` file.</p>
+        </div>
+        <div class="crud-btns">
+          <button onclick="loadCrudSample('create_row')">➕ 1. INSERT New AI Agent Run</button>
+          <button onclick="loadCrudSample('create_table')">🏗️ 2. CREATE TABLE `ai_memories` + INSERT</button>
+        </div>
+      </div>
+
+      <!-- READ -->
+      <div class="crud-card read">
+        <div>
+          <div class="crud-tag" style="color:var(--accent);">R — READ / SELECT</div>
+          <h3>Filter, Join & Aggregate</h3>
+          <p>Query live rows, run `GROUP BY` analytics, or inspect the internal `sqlite_schema` catalog.</p>
+        </div>
+        <div class="crud-btns">
+          <button onclick="loadCrudSample('read_all')">📋 1. SELECT All Agent Runs</button>
+          <button onclick="loadCrudSample('read_groupby')">📊 2. GROUP BY Agent Token & Latency Stats</button>
+          <button onclick="loadCrudSample('read_schema')">🔍 3. Inspect `sqlite_schema` Table & Indexes</button>
+        </div>
+      </div>
+
+      <!-- UPDATE -->
+      <div class="crud-card update">
+        <div>
+          <div class="crud-tag" style="color:var(--amber);">U — UPDATE / UPSERT</div>
+          <h3>Mutate Rows & Atomic Upsert</h3>
+          <p>Modify existing records or perform atomic `ON CONFLICT DO UPDATE` cache increments.</p>
+        </div>
+        <div class="crud-btns">
+          <button onclick="loadCrudSample('update_row')">✏️ 1. UPDATE Latency & Status of `run-101`</button>
+          <button onclick="loadCrudSample('upsert_cache')">🔁 2. ON CONFLICT Upsert into `kv_cache`</button>
+        </div>
+      </div>
+
+      <!-- DELETE -->
+      <div class="crud-card delete">
+        <div>
+          <div class="crud-tag" style="color:var(--red);">D — DELETE / PRUNE</div>
+          <h3>Delete Specific Rows</h3>
+          <p>Delete targeted records and verify immediate state mutation in the live table view.</p>
+        </div>
+        <div class="crud-btns">
+          <button onclick="loadCrudSample('delete_row')">🗑️ 1. DELETE Custom Agent Run (`run-crud-900`)</button>
+          <button onclick="loadCrudSample('delete_fast_runs')">🧹 2. DELETE Runs Under 45ms Latency</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Interactive SQL Editor + Live Database Tables -->
+    <section class="workspace-grid">
+      <div class="panel">
+        <h2>Interactive Multi-Statement SQL Editor</h2>
+        <p style="font-size:0.86rem; color:var(--muted);">
+          Write any SQL statement (or click a CRUD preset above) and press <strong>Execute SQL</strong>. Multiple statements separated by <code>;</code> are supported!
+        </p>
+
+        <textarea id="sql-editor" class="sql-editor">-- Click any CRUD button above or write your own SQL:
+INSERT INTO agent_runs (run_id, agent_name, model, task_type, tokens_used, latency_ms, status, updated_at)
+VALUES ('run-crud-900', 'sql-studio-agent', 'gemini-2.5-pro', 'interactive-crud', 5400, 118.5, 'SUCCESS', datetime('now'))
+ON CONFLICT(run_id) DO UPDATE SET
+    tokens_used = excluded.tokens_used + 250,
+    updated_at = excluded.updated_at;
+
+SELECT * FROM agent_runs ORDER BY updated_at DESC;</textarea>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+          <button class="primary" onclick="runEditorSQL()">▶ Execute SQL on Live Database</button>
+          <span id="exec-meta" style="font-family:var(--mono); font-size:0.82rem; color:var(--green);">Ready</span>
+        </div>
+
+        <div class="table-wrap">
+          <table id="result-table">
+            <thead><tr><th>Query Output</th></tr></thead>
+            <tbody><tr><td>Click "Execute SQL" or any CRUD button above.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right Column: Native sqlite3 CLI Runner & Live Table Inspector -->
+      <div style="display:flex; flex-direction:column; gap:1.5rem;">
+        <div class="panel">
+          <h2>Native `sqlite3` CLI Binary Runner (Installed on Fly.io & Local)</h2>
+          <p style="font-size:0.86rem; color:var(--muted);">
+            Run native <code>sqlite3</code> command-line dot-commands or SQL directly against the binary file on disk:
+          </p>
+          <div style="display:flex; gap:0.45rem; flex-wrap:wrap; margin:0.75rem 0;">
+            <button onclick="runCliCommand('.tables')"><code>.tables</code></button>
+            <button onclick="runCliCommand('.schema')"><code>.schema</code></button>
+            <button onclick="runCliCommand('PRAGMA database_list;')"><code>PRAGMA database_list;</code></button>
+            <button onclick="runCliCommand('PRAGMA journal_mode;')"><code>PRAGMA journal_mode;</code></button>
+            <button onclick="runCliCommand('SELECT run_id, agent_name, tokens_used, status FROM agent_runs;')"><code>SELECT ...</code></button>
+          </div>
+          <div style="display:flex; gap:0.5rem;">
+            <input id="cli-input" type="text" value=".schema" style="flex:1; background:#050811; color:#86efac; border:1px solid var(--border); border-radius:8px; padding:0.5rem 0.75rem; font-family:var(--mono); font-size:0.84rem;" />
+            <button class="primary" onclick="runCliCommand(document.getElementById('cli-input').value)">Run `sqlite3` CLI</button>
+          </div>
+          <pre class="cli-output" id="cli-output">Loading native sqlite3 CLI output...</pre>
+        </div>
+
+        <div class="panel">
+          <h2>Live `kv_cache` Table State</h2>
+          <div class="table-wrap" style="max-height:210px;">
+            <table id="live-cache-table">
+              <thead><tr><th>cache_key</th><th>hit_count</th><th>payload</th><th>last_accessed</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const CRUD_SAMPLES = {
+      create_row: `-- [CREATE] Insert a new AI agent execution record (or increment tokens if run-crud-900 already exists)
+INSERT INTO agent_runs (run_id, agent_name, model, task_type, tokens_used, latency_ms, status, updated_at)
+VALUES ('run-crud-900', 'crud-explorer-agent', 'gemini-2.5-pro', 'live-fly-crud', 5120, 94.2, 'SUCCESS', datetime('now'))
+ON CONFLICT(run_id) DO UPDATE SET
+    tokens_used = agent_runs.tokens_used + 500,
+    updated_at = excluded.updated_at;
+
+SELECT run_id, agent_name, model, task_type, tokens_used, latency_ms, status, updated_at
+FROM agent_runs
+ORDER BY run_id DESC;`,
+
+      create_table: `-- [CREATE TABLE + INSERT] Create a new table for agent episodic memories and insert sample rows
+CREATE TABLE IF NOT EXISTS ai_memories (
+    memory_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_name TEXT NOT NULL,
+    memory_fact TEXT NOT NULL,
+    confidence REAL DEFAULT 0.99,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+INSERT INTO ai_memories (agent_name, memory_fact, confidence)
+VALUES ('planner-agent', 'SQLite stores the entire database in a single ordinary file with 4KB B-tree pages.', 1.0);
+
+SELECT * FROM ai_memories ORDER BY memory_id DESC;`,
+
+      read_all: `-- [READ] Fetch all rows from agent_runs ordered by run_id
+SELECT run_id, agent_name, model, task_type, tokens_used, latency_ms, status, updated_at
+FROM agent_runs
+ORDER BY run_id;`,
+
+      read_groupby: `-- [READ AGGREGATION] Fast indexed GROUP BY summary across agent roles
+SELECT
+    agent_name,
+    COUNT(*) AS total_runs,
+    SUM(tokens_used) AS total_tokens,
+    ROUND(AVG(latency_ms), 2) AS avg_latency_ms,
+    MAX(updated_at) AS last_run
+FROM agent_runs
+GROUP BY agent_name
+ORDER BY total_tokens DESC;`,
+
+      read_schema: `-- [READ CATALOG] Inspect internal SQLite schema catalog (tables & B-Tree indexes)
+SELECT type, name, tbl_name, sql
+FROM sqlite_schema
+WHERE name NOT LIKE 'sqlite_%'
+ORDER BY type DESC, name;`,
+
+      update_row: `-- [UPDATE] Modify an existing row's latency, tokens, and status
+UPDATE agent_runs
+SET latency_ms = ROUND(latency_ms * 0.85, 2),
+    tokens_used = tokens_used + 100,
+    status = 'OPTIMIZED',
+    updated_at = datetime('now')
+WHERE run_id = 'run-101';
+
+SELECT run_id, agent_name, tokens_used, latency_ms, status, updated_at
+FROM agent_runs
+WHERE run_id = 'run-101';`,
+
+      upsert_cache: `-- [UPSERT] Atomic ON CONFLICT DO UPDATE in kv_cache
+INSERT INTO kv_cache (cache_key, payload, hit_count, last_accessed)
+VALUES ('prompt:crud:demo', '{"crud":"verified_on_fly_io","persisted":true}', 1, datetime('now'))
+ON CONFLICT(cache_key) DO UPDATE SET
+    hit_count = kv_cache.hit_count + 1,
+    last_accessed = excluded.last_accessed;
+
+SELECT * FROM kv_cache ORDER BY hit_count DESC;`,
+
+      delete_row: `-- [DELETE] Remove the custom run-crud-900 row
+DELETE FROM agent_runs WHERE run_id = 'run-crud-900';
+
+SELECT run_id, agent_name, task_type, tokens_used, status FROM agent_runs ORDER BY run_id;`,
+
+      delete_fast_runs: `-- [DELETE] Delete runs with latency under 45ms
+DELETE FROM agent_runs WHERE latency_ms < 45.0;
+
+SELECT run_id, agent_name, latency_ms, status FROM agent_runs ORDER BY latency_ms ASC;`
+    };
+
+    function renderTable(tableEl, columns, rows) {
+      if (!columns || columns.length === 0) {
+        tableEl.innerHTML = "<thead><tr><th>Status</th></tr></thead><tbody><tr><td>Statement executed.</td></tr></tbody>";
+        return;
+      }
+      const thead = "<thead><tr>" + columns.map(c => `<th>${c}</th>`).join("") + "</tr></thead>";
+      const tbody = "<tbody>" + rows.map(r => {
+        return "<tr>" + columns.map(c => `<td>${r[c] !== null && r[c] !== undefined ? r[c] : "NULL"}</td>`).join("") + "</tr>";
+      }).join("") + "</tbody>";
+      tableEl.innerHTML = thead + tbody;
+    }
+
+    function updateHeaderFromSnapshot(snap) {
+      if (!snap) return;
+      document.getElementById("pill-db-path").textContent = `DB File: ${snap.engine.db_file} (${(snap.engine.db_size_bytes / 1024).toFixed(1)} KB)`;
+      document.getElementById("pill-cli-bin").textContent = `sqlite3 CLI: ${snap.engine.sqlite3_cli_version}`;
+      document.getElementById("pill-volume").textContent = snap.engine.persistent_volume_mounted
+        ? "Persistence: Mounted on Fly Volume (/data)"
+        : `Persistence: Local Directory (${snap.engine.storage_directory})`;
+      renderTable(document.getElementById("live-cache-table"), ["cache_key", "hit_count", "payload", "last_accessed"], snap.kv_cache);
+    }
+
+    async function runEditorSQL() {
+      const sql = document.getElementById("sql-editor").value;
+      const res = await fetch("/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sql })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        document.getElementById("exec-meta").style.color = "var(--green)";
+        document.getElementById("exec-meta").textContent =
+          `✓ Executed in ${data.elapsed_ms} ms | Rows returned: ${data.row_count} | Rows mutated: ${data.affected_rows || 0}`;
+        renderTable(document.getElementById("result-table"), data.columns, data.rows);
+        if (data.snapshot) updateHeaderFromSnapshot(data.snapshot);
+      } else {
+        document.getElementById("exec-meta").style.color = "var(--red)";
+        document.getElementById("exec-meta").textContent = `✗ SQL Error (${data.elapsed_ms || 0} ms)`;
+        renderTable(document.getElementById("result-table"), ["SQL Error"], [{ "SQL Error": data.error }]);
+      }
+    }
+
+    function loadCrudSample(key) {
+      document.getElementById("sql-editor").value = CRUD_SAMPLES[key];
+      runEditorSQL();
+    }
+
+    async function runCliCommand(cmd) {
+      document.getElementById("cli-input").value = cmd;
+      const res = await fetch("/api/sqlite-cli", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cmd })
+      });
+      const data = await res.json();
+      const outEl = document.getElementById("cli-output");
+      if (data.ok) {
+        outEl.textContent = `$ ${data.command}\n\n${data.output || "(no output)"}`;
+      } else {
+        outEl.textContent = `ERROR:\n${data.error}`;
+      }
+    }
+
+    async function resetDatabase() {
+      const res = await fetch("/api/reset");
+      const snap = await res.json();
+      updateHeaderFromSnapshot(snap);
+      loadCrudSample("read_all");
+      runCliCommand(".tables");
+    }
+
+    window.addEventListener("DOMContentLoaded", async () => {
+      const res = await fetch("/api/status");
+      const snap = await res.json();
+      updateHeaderFromSnapshot(snap);
+      runEditorSQL();
+      runCliCommand(".schema");
+    });
+  </script>
+</body>
+</html>
