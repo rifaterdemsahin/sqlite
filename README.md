@@ -10,9 +10,11 @@ An interactive SQLite sandbox and visual architecture showcase demonstrating **S
 | :--- | :--- |
 | 🚀 **Fly.io Production Sandbox (`index.html`)** | [https://sqlite-ai-sandbox.fly.dev/index.html](https://sqlite-ai-sandbox.fly.dev/index.html) |
 | 📐 **Fly.io Visual Architecture Blueprint (`architecture.html`)** | [https://sqlite-ai-sandbox.fly.dev/architecture.html](https://sqlite-ai-sandbox.fly.dev/architecture.html) |
+| 📂 **Fly.io Project Files & Run Guide (`files-and-run.html`)** | [https://sqlite-ai-sandbox.fly.dev/files-and-run.html](https://sqlite-ai-sandbox.fly.dev/files-and-run.html) |
 | 📊 **Fly.io Live Telemetry API (`/api/status`)** | [https://sqlite-ai-sandbox.fly.dev/api/status](https://sqlite-ai-sandbox.fly.dev/api/status) |
 | 💻 **Local Dev Server (`index.html` on Port 30085)** | [http://localhost:30085/index.html](http://localhost:30085/index.html) |
 | 💻 **Local Architecture Page (`architecture.html` on Port 30085)** | [http://localhost:30085/architecture.html](http://localhost:30085/architecture.html) |
+| 💻 **Local Files & Run Guide (`files-and-run.html` on Port 30085)** | [http://localhost:30085/files-and-run.html](http://localhost:30085/files-and-run.html) |
 | 📦 **GitHub Repository** | [https://github.com/rifaterdemsahin/sqlite](https://github.com/rifaterdemsahin/sqlite) |
 
 ---

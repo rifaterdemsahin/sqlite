@@ -3,7 +3,7 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # Copy application code and static assets
-COPY sandbox.py index.html architecture.html README.md ./
+COPY sandbox.py index.html architecture.html files-and-run.html README.md ./
 
 # Pre-initialize the SQLite database file and verify ACID & file-copy proof during build
 RUN python3 sandbox.py --cli-only
