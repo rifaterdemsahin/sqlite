@@ -11,12 +11,14 @@ An interactive SQLite sandbox and visual architecture showcase demonstrating **S
 | 🚀 **Fly.io Production Sandbox (`index.html`)** | [https://sqlite-ai-sandbox.fly.dev/index.html](https://sqlite-ai-sandbox.fly.dev/index.html) |
 | 🛠️ **Fly.io SQL Query & CRUD Studio (`sql-playground.html`)** | [https://sqlite-ai-sandbox.fly.dev/sql-playground.html](https://sqlite-ai-sandbox.fly.dev/sql-playground.html) |
 | 💾 **Fly.io SQLite Persistence Guide (`fly-persistence.html`)** | [https://sqlite-ai-sandbox.fly.dev/fly-persistence.html](https://sqlite-ai-sandbox.fly.dev/fly-persistence.html) |
+| 💰 **Fly.io NVMe Volume Cost Analysis (`fly-costs.html`)** | [https://sqlite-ai-sandbox.fly.dev/fly-costs.html](https://sqlite-ai-sandbox.fly.dev/fly-costs.html) |
 | 📐 **Fly.io Visual Architecture Blueprint (`architecture.html`)** | [https://sqlite-ai-sandbox.fly.dev/architecture.html](https://sqlite-ai-sandbox.fly.dev/architecture.html) |
 | 📂 **Fly.io Project Files & Run Guide (`files-and-run.html`)** | [https://sqlite-ai-sandbox.fly.dev/files-and-run.html](https://sqlite-ai-sandbox.fly.dev/files-and-run.html) |
 | 📊 **Fly.io Live Telemetry API (`/api/status`)** | [https://sqlite-ai-sandbox.fly.dev/api/status](https://sqlite-ai-sandbox.fly.dev/api/status) |
 | 💻 **Local Dev Server (`index.html` on Port 30085)** | [http://localhost:30085/index.html](http://localhost:30085/index.html) |
 | 💻 **Local SQL & CRUD Studio (`sql-playground.html` on Port 30085)** | [http://localhost:30085/sql-playground.html](http://localhost:30085/sql-playground.html) |
 | 💻 **Local Fly.io Persistence Page (`fly-persistence.html` on Port 30085)** | [http://localhost:30085/fly-persistence.html](http://localhost:30085/fly-persistence.html) |
+| 💻 **Local Fly.io Cost Breakdown Page (`fly-costs.html` on Port 30085)** | [http://localhost:30085/fly-costs.html](http://localhost:30085/fly-costs.html) |
 | 💻 **Local Architecture Page (`architecture.html` on Port 30085)** | [http://localhost:30085/architecture.html](http://localhost:30085/architecture.html) |
 | 💻 **Local Files & Run Guide (`files-and-run.html` on Port 30085)** | [http://localhost:30085/files-and-run.html](http://localhost:30085/files-and-run.html) |
 | 📦 **GitHub Repository** | [https://github.com/rifaterdemsahin/sqlite](https://github.com/rifaterdemsahin/sqlite) |

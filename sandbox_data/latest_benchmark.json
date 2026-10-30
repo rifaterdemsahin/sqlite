@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-30T11:09:31.983652+00:00",
+  "timestamp": "2026-10-30T11:20:43.386904+00:00",
   "engine": {
     "sqlite_version": "3.54.1",
     "sqlite3_cli_binary": "/usr/bin/sqlite3",
@@ -21,11 +21,11 @@
     "copied_file": "sandbox_data/ai_workflow_sandbox_copy.db",
     "source_bytes": 28672,
     "copied_bytes": 28672,
-    "verified_rows_in_copy": 6
+    "verified_rows_in_copy": 7
   },
   "acid_proof": {
-    "rows_before_crash": 6,
-    "rows_after_rollback": 6,
+    "rows_before_crash": 7,
+    "rows_after_rollback": 7,
     "integrity_check": "ok",
     "transaction_trace": [
       "BEGIN TRANSACTION",
@@ -34,8 +34,8 @@
     ]
   },
   "performance": {
-    "upsert_latency_ms": 0.29,
-    "group_by_latency_ms": 0.071,
+    "upsert_latency_ms": 0.518,
+    "group_by_latency_ms": 0.131,
     "explain_query_plan": [
       {
         "id": 3,
@@ -59,6 +59,13 @@
       "total_runs": 1,
       "total_tokens": 6890,
       "avg_latency_ms": 512.8
+    },
+    {
+      "agent_name": "sql-studio-agent",
+      "task_type": "interactive-crud",
+      "total_runs": 1,
+      "total_tokens": 5650,
+      "avg_latency_ms": 118.5
     },
     {
       "agent_name": "retriever-agent",
@@ -135,14 +142,24 @@
       "latency_ms": 289.0,
       "status": "SUCCESS",
       "updated_at": "2026-10-30T10:57:25.128900+00:00"
+    },
+    {
+      "run_id": "run-crud-900",
+      "agent_name": "sql-studio-agent",
+      "model": "gemini-2.5-pro",
+      "task_type": "interactive-crud",
+      "tokens_used": 5650,
+      "latency_ms": 118.5,
+      "status": "SUCCESS",
+      "updated_at": "2026-10-30 11:20:22"
     }
   ],
   "kv_cache": [
     {
       "cache_key": "schema:agent_runs",
       "payload": "{\"columns\":8,\"indexed\":true,\"wal_enabled\":true}",
-      "hit_count": 34,
-      "last_accessed": "2026-10-30T11:09:31.983652+00:00"
+      "hit_count": 47,
+      "last_accessed": "2026-10-30T11:20:43.386904+00:00"
     },
     {
       "cache_key": "prompt:system:v1",

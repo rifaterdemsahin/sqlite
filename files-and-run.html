@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Project Files & Run Guide — SQLite 3.54.1 AI Sandbox</title>
+  <script src="nav.js" defer></script>
   <style>
     :root {
       --bg: #080c16;
@@ -353,6 +354,20 @@
             <td>Visual Blueprint Page</td>
             <td>
               Deep-dive visual architecture page illustrating the 4-step ACID mid-write crash &amp; recovery pipeline, the architectural trade-off matrix, and the Python 3 reference implementation pattern.
+            </td>
+          </tr>
+          <tr>
+            <td><code>nav.js</code></td>
+            <td>Reusable Top Menu Component</td>
+            <td>
+              Shared JavaScript navigation header component that injects the emoji-enhanced sticky top bar across all 6 pages and displays live SQLite version + volume mount telemetry.
+            </td>
+          </tr>
+          <tr>
+            <td><code>fly-costs.html</code></td>
+            <td>Cost Analysis &amp; Calculator</td>
+            <td>
+              Visual and interactive cost breakdown for running SQLite on a Fly Firecracker Micro-VM with a mounted `/data` NVMe volume (`$0.15/GB/mo` storage + auto-stopped or 24/7 compute).
             </td>
           </tr>
           <tr>

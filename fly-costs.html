@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>💰 Fly.io SQLite + NVMe Volume Cost Breakdown & Interactive Calculator</title>
+  <script src="nav.js" defer></script>
+  <style>
+    :root {
+      --bg: #070b14;
+      --surface: #111827;
+      --surface-alt: #1e293b;
+      --border: #2e3f5c;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.14);
+      --green: #22c55e;
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --purple: #a855f7;
+      --mono: "JetBrains Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 20% 0%, #152540 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.65;
+      padding-bottom: 4rem;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .container {
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .hero-card {
+      background: linear-gradient(145deg, #131e36 0%, #0b1120 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.1rem;
+      margin-bottom: 2rem;
+    }
+
+    .hero-card h1 {
+      font-size: 2rem;
+      margin-bottom: 0.55rem;
+    }
+
+    .hero-card p {
+      color: var(--muted);
+      max-width: 920px;
+    }
+
+    .price-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    @media (max-width: 1024px) {
+      .price-cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 600px) {
+      .price-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .price-card {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.15rem;
+    }
+
+    .price-card .label {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    .price-card .amount {
+      font-family: var(--mono);
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: var(--green);
+      margin: 0.25rem 0;
+    }
+
+    .price-card .note {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .section-card h2 {
+      font-size: 1.35rem;
+      color: var(--accent);
+      margin-bottom: 0.45rem;
+    }
+
+    .section-card p.sub {
+      color: var(--muted);
+      font-size: 0.94rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .svg-box {
+      background: #050811;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface-alt);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+    }
+
+    code {
+      font-family: var(--mono);
+      background: rgba(56, 189, 248, 0.1);
+      color: #7dd3fc;
+      padding: 0.15rem 0.4rem;
+      border-radius: 5px;
+      font-size: 0.84rem;
+    }
+
+    /* Interactive Calculator */
+    .calc-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 1.5rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 920px) {
+      .calc-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .control-group {
+      background: #0b1120;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.1rem;
+      margin-bottom: 1rem;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 0.92rem;
+      margin-bottom: 0.5rem;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .calc-result-box {
+      background: linear-gradient(150deg, #091e1a 0%, #0b1324 100%);
+      border: 1px solid var(--green);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .total-price {
+      font-family: var(--mono);
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--green);
+      line-height: 1.1;
+      margin: 0.4rem 0 1rem;
+    }
+
+    .line-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.9rem;
+      font-family: var(--mono);
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar" id="reusable-navbar"></header>
+
+  <main class="container">
+    <!-- Hero -->
+    <section class="hero-card">
+      <h1>💰 Cost Analysis: SQLite on Fly.io NVMe Volume (`[mounts]` → `/data`)</h1>
+      <p>
+        Exact line-by-line cost breakdown for our deployed stack:
+        <strong>Fly Firecracker Micro-VM (Stateless Code in <code>/app</code>)</strong> +
+        <strong><code>ENV: SANDBOX_DATA_DIR="/data"</code></strong> +
+        <strong>Python <code>sqlite3</code> &amp; <code>sqlite3</code> CLI binary</strong> +
+        <strong>Direct Local NVMe Block I/O (<code>sqlite_data</code> 1 GB Volume)</strong>.
+      </p>
+
+      <div class="price-cards">
+        <div class="price-card">
+          <div class="label">🐍 SQLite Engine &amp; CLI</div>
+          <div class="amount">$0.00 / mo</div>
+          <div class="note">Public domain library + built-in Python `sqlite3`</div>
+        </div>
+        <div class="price-card">
+          <div class="label">💾 1 GB NVMe Volume (`/data`)</div>
+          <div class="amount">$0.15 / mo</div>
+          <div class="note">Fly NVMe block storage @ $0.15 per GB/month</div>
+        </div>
+        <div class="price-card">
+          <div class="label">💤 Auto-Stopped VM (5% Active)</div>
+          <div class="amount">~$0.25 / mo</div>
+          <div class="note">Shared-CPU-1x (256MB) w/ `auto_stop_machines="stop"`</div>
+        </div>
+        <div class="price-card">
+          <div class="label">⚡ Always-On 24/7 Total</div>
+          <div class="amount">$2.09 / mo</div>
+          <div class="note">$1.94 VM (24/7) + $0.15 NVMe Volume (1 GB)</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visual Architecture & Cost Attribution Diagram -->
+    <section class="section-card">
+      <h2>1. 📐 Architecture Stack Mapped to Monthly Cost (`sqlite-ai-sandbox`)</h2>
+      <p class="sub">
+        Every layer of the requested architecture (`WITH FLY NVMe VOLUME ([mounts] -> /data)`) mapped directly to its Fly.io billing component:
+      </p>
+
+      <div class="svg-box">
+        <svg viewBox="0 0 880 270" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+          <!-- Outer Container -->
+          <rect x="14" y="14" width="852" height="242" rx="12" fill="#0b1528" stroke="#22c55e" stroke-width="2" />
+          <text x="32" y="42" fill="#86efac" font-family="monospace" font-size="13" font-weight="bold">✅ WITH FLY NVMe VOLUME (`[mounts]` -&gt; `/data`) — TOTAL STACK: ~$0.40/mo (Auto-Stop) to $2.09/mo (24/7)</text>
+
+          <!-- Box 1: Firecracker Micro-VM -->
+          <rect x="32" y="60" width="510" height="90" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5" />
+          <text x="48" y="84" fill="#f8fafc" font-family="monospace" font-size="12" font-weight="bold">🖥️ Fly Firecracker Micro-VM (Stateless Code in /app)</text>
+          <text x="48" y="106" fill="#7dd3fc" font-family="monospace" font-size="11">• ENV: SANDBOX_DATA_DIR="/data"   • shared-cpu-1x (256MB RAM)</text>
+          <text x="48" y="126" fill="#cbd5e1" font-family="monospace" font-size="11">• Python `sqlite3` + `/usr/bin/sqlite3` CLI binary</text>
+          <text x="48" y="142" fill="#86efac" font-family="monospace" font-size="10">• auto_stop_machines = "stop" | auto_start_machines = true</text>
+
+          <!-- Cost Tag 1 -->
+          <rect x="560" y="60" width="286" height="90" rx="8" fill="#0f172a" stroke="#38bdf8" />
+          <text x="576" y="84" fill="#38bdf8" font-family="monospace" font-size="11" font-weight="bold">💳 COMPUTE &amp; LICENSE COST</text>
+          <text x="576" y="106" fill="#e2e8f0" font-family="sans-serif" font-size="11">• SQLite Engine + CLI: <tspan fill="#22c55e" font-weight="bold">$0.00/mo</tspan></text>
+          <text x="576" y="125" fill="#e2e8f0" font-family="sans-serif" font-size="11">• Idle VM (Stopped): <tspan fill="#22c55e" font-weight="bold">$0.15/mo</tspan> (RootFS)</text>
+          <text x="576" y="142" fill="#e2e8f0" font-family="sans-serif" font-size="11">• Active 24/7 VM: <tspan fill="#38bdf8" font-weight="bold">$1.94/mo</tspan> ($0.0000007/s)</text>
+
+          <!-- Arrow: Direct Local NVMe Block I/O -->
+          <line x1="285" y1="150" x2="285" y2="174" stroke="#22c55e" stroke-width="3" />
+          <text x="298" y="166" fill="#86efac" font-family="monospace" font-size="10" font-weight="bold">⚡ Direct Local NVMe Block I/O (POSIX Locks OK — 0 Network Latency)</text>
+
+          <!-- Box 2: Persistent NVMe Volume -->
+          <rect x="32" y="174" width="510" height="66" rx="8" fill="#064e3b" stroke="#22c55e" stroke-width="1.5" />
+          <text x="48" y="198" fill="#dcfce7" font-family="monospace" font-size="12" font-weight="bold">💾 Persistent Fly Volume: `sqlite_data` Mounted at `/data`</text>
+          <text x="48" y="218" fill="#a7f3d0" font-family="monospace" font-size="10">• /data/ai_workflow_sandbox.db (+ .db-wal, .db-shm) + 5-Day Auto Snapshots</text>
+          <text x="48" y="232" fill="#86efac" font-family="monospace" font-size="10">✓ Survives `fly deploy`, machine restarts &amp; auto-stop/start!</text>
+
+          <!-- Cost Tag 2 -->
+          <rect x="560" y="174" width="286" height="66" rx="8" fill="#064e3b" stroke="#22c55e" />
+          <text x="576" y="196" fill="#86efac" font-family="monospace" font-size="11" font-weight="bold">💳 NVMe BLOCK STORAGE COST</text>
+          <text x="576" y="216" fill="#ffffff" font-family="sans-serif" font-size="11">• 1 GB NVMe Volume: <tspan fill="#86efac" font-weight="bold">$0.15 / month</tspan></text>
+          <text x="576" y="232" fill="#a7f3d0" font-family="sans-serif" font-size="10">• Auto Daily Snapshots: <tspan fill="#86efac" font-weight="bold">$0.00</tspan> (Free for 5d)</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Line-by-Line Architecture Component Breakdown Table -->
+    <section class="section-card">
+      <h2>2. 📋 Detailed Line-Item Breakdown of Every Architecture Layer</h2>
+      <p class="sub">
+        How each line of the architecture specification contributes to performance, durability, and monthly cloud cost:
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Architecture Layer</th>
+            <th>Technical Role in Our Sandbox</th>
+            <th>Unit Pricing on Fly.io</th>
+            <th>Monthly Cost (1 GB / 256MB VM)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>1. <code>WITH FLY NVMe VOLUME ([mounts] -&gt; /data)</code></strong></td>
+            <td>
+              Attaches encrypted host-local NVMe block storage (`vol_rkg3z1zk9k6gyoo4`) at `/data` in London (`lhr`). Includes automatic daily snapshots retained for 5 days.
+            </td>
+            <td><code>$0.15 / GB / month</code><br/>Snapshots: Free (first 5 days)</td>
+            <td><strong style="color:var(--green);">$0.15 / mo</strong> (for 1 GB)</td>
+          </tr>
+          <tr>
+            <td><strong>2. <code>Fly Firecracker Micro-VM (Stateless Code in /app)</code></strong></td>
+            <td>
+              Runs `sandbox.py` and HTML assets inside an isolated hardware-virtualized Firecracker VM (`shared-cpu-1x`, 256MB RAM). With `auto_stop_machines = "stop"`, compute only bills while handling requests.
+            </td>
+            <td>Running: <code>$1.94 / mo</code> (24/7)<br/>Stopped RootFS: <code>~$0.15 / mo</code></td>
+            <td><strong style="color:var(--green);">~$0.25 / mo</strong> (5% active)<br/>or <strong>$1.94 / mo</strong> (24/7)</td>
+          </tr>
+          <tr>
+            <td><strong>3. <code>ENV: SANDBOX_DATA_DIR="/data"</code></strong></td>
+            <td>
+              Environment variable instructing `sandbox.py` to store `ai_workflow_sandbox.db` and its cloned backup on the persistent `/data` mount instead of ephemeral `/app`.
+            </td>
+            <td>Configuration metadata</td>
+            <td><strong style="color:var(--green);">$0.00 / mo</strong></td>
+          </tr>
+          <tr>
+            <td><strong>4. <code>Python sqlite3 + sqlite3 CLI binary</code></strong></td>
+            <td>
+              In-process C library (`import sqlite3`) + `/usr/bin/sqlite3` CLI installed via `apt-get install sqlite3`. Requires zero database server license, zero DB daemon RAM, and zero external ports.
+            </td>
+            <td>Public Domain (Open Source)</td>
+            <td><strong style="color:var(--green);">$0.00 / mo</strong></td>
+          </tr>
+          <tr>
+            <td><strong>5. <code>Direct Local NVMe Block I/O (POSIX Locks OK)</code></strong></td>
+            <td>
+              Reads/writes go straight to the local NVMe disk slice via OS kernel page cache (`fcntl()` POSIX locks + mmap `-shm` WAL index). Zero inter-VM network traffic fees!
+            </td>
+            <td>Local Disk IOPS: Unlimited / Free<br/>No internal DB bandwidth fee</td>
+            <td><strong style="color:var(--green);">$0.00 / mo</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Interactive Cost Calculator -->
+    <section class="section-card">
+      <h2>3. 🧮 Interactive Fly.io + SQLite NVMe Cost Calculator</h2>
+      <p class="sub">
+        Adjust the sliders below to estimate your exact monthly cost as your SQLite database file grows (up to many GB) or your AI agent traffic increases:
+      </p>
+
+      <div class="calc-grid">
+        <div>
+          <div class="control-group">
+            <div class="control-header">
+              <span>💾 Fly NVMe Volume Size (`/data` in GB)</span>
+              <span id="val-gb" style="color:var(--accent); font-family:var(--mono);">1 GB</span>
+            </div>
+            <input type="range" id="slider-gb" min="1" max="100" value="1" oninput="updateCostCalc()" />
+            <div style="font-size:0.78rem; color:var(--muted); margin-top:0.35rem;">
+              1 GB stores ~35,000+ rich AI agent telemetry runs or ~250,000 cached prompts ($0.15/GB/mo).
+            </div>
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span>⏱️ Micro-VM Active Uptime % (`auto_stop_machines`)</span>
+              <span id="val-uptime" style="color:var(--accent); font-family:var(--mono);">10% (2.4 hrs/day)</span>
+            </div>
+            <input type="range" id="slider-uptime" min="1" max="100" value="10" oninput="updateCostCalc()" />
+            <div style="font-size:0.78rem; color:var(--muted); margin-top:0.35rem;">
+              Fly automatically stops the VM when idle and wakes it in ~300ms on incoming HTTP requests.
+            </div>
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span>🧠 Micro-VM RAM Tier (`shared-cpu-1x`)</span>
+              <span id="val-ram" style="color:var(--accent); font-family:var(--mono);">256 MB ($1.94/mo 24/7)</span>
+            </div>
+            <input type="range" id="slider-ram" min="1" max="4" value="1" step="1" oninput="updateCostCalc()" />
+            <div style="font-size:0.78rem; color:var(--muted); margin-top:0.35rem;">
+              1 = 256MB ($1.94) • 2 = 512MB ($3.19) • 3 = 1GB ($5.70) • 4 = 2GB ($10.70)
+            </div>
+          </div>
+        </div>
+
+        <div class="calc-result-box">
+          <div>
+            <div style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.06em; color:#86efac;">
+              Estimated Monthly Total (Fly.io + Persistent SQLite)
+            </div>
+            <div class="total-price" id="calc-total">$0.48 / mo</div>
+
+            <div class="line-item">
+              <span>🐍 SQLite Engine &amp; CLI License</span>
+              <span style="color:var(--green);">$0.00</span>
+            </div>
+            <div class="line-item">
+              <span>⚡ Direct Local NVMe IOPS / Queries</span>
+              <span style="color:var(--green);">$0.00</span>
+            </div>
+            <div class="line-item">
+              <span>💾 `/data` NVMe Volume (<span id="item-gb">1</span> GB)</span>
+              <span id="cost-volume">$0.15</span>
+            </div>
+            <div class="line-item">
+              <span>🖥️ Firecracker Micro-VM Compute</span>
+              <span id="cost-vm">$0.33</span>
+            </div>
+          </div>
+
+          <div style="margin-top:1.25rem; padding-top:0.85rem; border-top:1px solid rgba(255,255,255,0.12); font-size:0.83rem; color:#cbd5e1;">
+            💡 <strong>Compare with Managed Cloud SQL:</strong> Equivalent managed RDS / Cloud SQL Postgres instance + compute typically costs <strong>$15.00 – $35.00+/month</strong> minimum—making embedded SQLite on a Fly Volume <strong>10x to 50x cheaper</strong>.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Industry Cost Comparison Table -->
+    <section class="section-card">
+      <h2>4. ⚖️ Cloud Database Cost Comparison (Why Embedded SQLite Wins for Local State &amp; AI Apps)</h2>
+      <p class="sub">
+        Comparing our deployed Fly.io + SQLite NVMe stack against traditional client-server managed databases:
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Architecture Option</th>
+            <th>Base Compute + DB Cost</th>
+            <th>Storage Cost (1 GB)</th>
+            <th>Query Network Latency</th>
+            <th>Total Monthly Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>✅ Our Setup: Fly Micro-VM + `/data` NVMe SQLite (Auto-Stop)</strong></td>
+            <td>~$0.20 – $0.35 / mo</td>
+            <td>$0.15 / mo (NVMe)</td>
+            <td><strong>~0.05 ms</strong> (In-Process C call)</td>
+            <td><strong style="color:var(--green);">~$0.35 – $0.50 / mo</strong></td>
+          </tr>
+          <tr>
+            <td><strong>✅ Our Setup: Fly Micro-VM + `/data` NVMe SQLite (24/7 Always-On)</strong></td>
+            <td>$1.94 / mo</td>
+            <td>$0.15 / mo (NVMe)</td>
+            <td><strong>~0.05 ms</strong> (In-Process C call)</td>
+            <td><strong style="color:var(--green);">$2.09 / mo</strong></td>
+          </tr>
+          <tr>
+            <td><strong>⚠️ App VM + Managed Cloud Postgres (AWS RDS db.t4g.micro)</strong></td>
+            <td>$1.94 VM + ~$12.41 RDS</td>
+            <td>~$2.30 / mo (gp3 20GB min)</td>
+            <td>1.5 ms – 5.0 ms (TCP/TLS hop)</td>
+            <td><strong style="color:var(--amber);">~$16.65 / mo</strong></td>
+          </tr>
+          <tr>
+            <td><strong>⚠️ App VM + Managed Serverless Postgres / Dedicated Cluster</strong></td>
+            <td>$1.94 VM + $19.00 – $25.00 DB</td>
+            <td>Included / $0.125 per GB</td>
+            <td>2.0 ms – 8.0 ms (Pooler hop)</td>
+            <td><strong style="color:var(--red);">$20.94 – $26.94 / mo</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const RAM_TIERS = {
+      1: { label: "256 MB ($1.94/mo 24/7)", monthly247: 1.94 },
+      2: { label: "512 MB ($3.19/mo 24/7)", monthly247: 3.19 },
+      3: { label: "1 GB ($5.70/mo 24/7)", monthly247: 5.70 },
+      4: { label: "2 GB ($10.70/mo 24/7)", monthly247: 10.70 }
+    };
+
+    function updateCostCalc() {
+      const gb = parseInt(document.getElementById("slider-gb").value, 10);
+      const uptimePct = parseInt(document.getElementById("slider-uptime").value, 10);
+      const ramIdx = parseInt(document.getElementById("slider-ram").value, 10);
+      const tier = RAM_TIERS[ramIdx];
+
+      const hrsPerDay = ((uptimePct / 100) * 24).toFixed(1);
+      document.getElementById("val-gb").textContent = `${gb} GB`;
+      document.getElementById("item-gb").textContent = gb;
+      document.getElementById("val-uptime").textContent = `${uptimePct}% (${hrsPerDay} hrs/day)`;
+      document.getElementById("val-ram").textContent = tier.label;
+
+      const volCost = gb * 0.15;
+      // Stopped rootfs overhead is ~$0.15/mo for the inactive portion
+      const activeFraction = uptimePct / 100;
+      const vmCost = (tier.monthly247 * activeFraction) + (0.15 * (1 - activeFraction));
+      const total = volCost + vmCost;
+
+      document.getElementById("cost-volume").textContent = `$${volCost.toFixed(2)}`;
+      document.getElementById("cost-vm").textContent = `$${vmCost.toFixed(2)}`;
+      document.getElementById("calc-total").textContent = `$${total.toFixed(2)} / mo`;
+    }
+
+    window.addEventListener("DOMContentLoaded", updateCostCalc);
+  </script>
+</body>
+</html>

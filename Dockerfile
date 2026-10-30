@@ -5,8 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends sqlite3 && rm -
 
 WORKDIR /app
 
-# Copy application code and all HTML pages
-COPY sandbox.py index.html architecture.html files-and-run.html sql-playground.html fly-persistence.html README.md ./
+# Copy application code, reusable nav component, and all HTML pages
+COPY sandbox.py nav.js index.html architecture.html files-and-run.html sql-playground.html fly-persistence.html fly-costs.html README.md ./
 
 # Pre-initialize the local fallback SQLite database file and verify ACID & file-copy proof during build
 RUN python3 sandbox.py --cli-only
